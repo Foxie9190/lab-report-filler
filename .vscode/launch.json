@@ -1,0 +1,25 @@
+{
+  // Press F5 to run the app. Stop it with the red square (or Ctrl+C in the terminal).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab Report Filler (web)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "Lab Report Filler (desktop window)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "args": ["desktop"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    }
+  ]
+}

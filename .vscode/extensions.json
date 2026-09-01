@@ -1,0 +1,7 @@
+{
+  // VS Code will offer to install these when you open the folder.
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance"
+  ]
+}
