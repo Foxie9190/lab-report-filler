@@ -6,7 +6,14 @@ Both sides agree on these objects, so you can rewrite the backend however you
 want as long as your functions take and return these.
 
 Claude wrote this file. You shouldn't need to change it, but read it first —
-everything else makes more sense once you know these four objects.
+everything else makes more sense once you know these objects.
+
+The report template these follow:
+    Title of lab -> LabInfo.title
+    Material list -> LabContent.materials
+    Safety precautions -> LabContent.safety
+    Data tables -> DataTable
+    Analysis questions -> list[AnalysisQuestion]
 """
 
 from __future__ import annotations
@@ -28,14 +35,26 @@ class LabInfo:
 
 @dataclass
 class LabContent:
-    """The written sections of the report."""
+    """The written sections of the report.
 
-    purpose: str = ""
-    hypothesis: str = ""
-    materials: str = ""  # one item per line
-    procedure: str = ""  # one step per line
-    observations: str = ""
-    conclusion: str = ""
+    Both are plain multi-line strings — one item per line — because that's
+    what a textarea gives you.
+    """
+
+    materials: str = ""  # one material per line
+    safety: str = ""  # one precaution per line
+
+
+@dataclass
+class AnalysisQuestion:
+    """One analysis question and the answer you wrote for it.
+
+    The UI gives you a question box and an answer box per row, so this is
+    just the pair. Both are strings; either can be blank.
+    """
+
+    question: str = ""
+    answer: str = ""
 
 
 @dataclass
@@ -49,7 +68,9 @@ class DataTable:
     Convert to float in your chem functions (and handle blanks!).
     """
 
-    headers: list[str] = field(default_factory=lambda: ["Trial", "Measurement", "Units"])
+    headers: list[str] = field(
+        default_factory=lambda: ["Trial", "Measurement", "Units"]
+    )
     rows: list[list[str]] = field(default_factory=list)
 
     def column(self, header: str) -> list[str]:
@@ -92,6 +113,7 @@ class LabReport:
     content: LabContent = field(default_factory=LabContent)
     data: DataTable = field(default_factory=DataTable)
     calculations: list[CalcResult] = field(default_factory=list)
+    analysis: list[AnalysisQuestion] = field(default_factory=list)
 
 
 class NotBuiltYet(NotImplementedError):

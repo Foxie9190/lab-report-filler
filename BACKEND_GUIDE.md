@@ -38,8 +38,8 @@ def build_report(report: LabReport) -> str:
     chunks.append(f"# {info.title or 'Lab Report'}")
     chunks.append(f"**Name:** {info.student_name}  \n**Class:** {info.course}  \n**Date:** {info.date}")
 
-    if c.purpose:
-        chunks.append("## Purpose\n\n" + c.purpose)
+    if c.materials:
+        chunks.append("## Material list\n\n" + bullet_list(c.materials))
 
     # ... you take it from here
 
@@ -50,11 +50,16 @@ def build_report(report: LabReport) -> str:
 preview box.
 
 **Then level it up:**
-- Skip empty sections (that `if c.purpose:` pattern) so blank fields don't
+- Skip empty sections (that `if c.materials:` pattern) so blank fields don't
   leave lonely headings.
+- Add safety precautions: `bullet_list(c.safety)`.
 - Add the data table: `markdown_table(report.data)`.
 - Loop `report.calculations` and print each one's `name`, `work`, and
   `pretty()`.
+- Loop `report.analysis` and print each `q.question` / `q.answer` pair.
+
+The template you are building, in order: title, material list, safety
+precautions, data, calculations, analysis questions.
 
 **Gotcha:** in Markdown, two spaces at the end of a line = line break. That's
 why the `**Name:**` line above has trailing spaces before `\n`. Easy to

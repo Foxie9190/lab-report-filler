@@ -1,17 +1,4 @@
-"""
-=============================================================================
-  YOUR FILE #3 — turning everything into the actual report
-=============================================================================
 
-You get a LabReport object (all the form data), you return a string of
-Markdown. The UI renders that string as the preview and saves it when you
-hit Export.
-
-This one is pure string-building — no APIs, no math. Good one to do first
-if you want a quick win.
-
-See BACKEND_GUIDE.md → Step 3.
-"""
 
 from __future__ import annotations
 
@@ -19,11 +6,7 @@ from .models import DataTable, LabReport, NotBuiltYet
 
 
 def markdown_table(data: DataTable) -> str:
-    """Turn a DataTable into a Markdown table.
 
-    DONE for you — this is fiddly and not the interesting part.
-    Returns "" if there's no data, so you can safely drop it into an f-string.
-    """
     if not data.headers or not data.rows:
         return ""
     head = "| " + " | ".join(data.headers) + " |"
@@ -36,13 +19,13 @@ def markdown_table(data: DataTable) -> str:
 
 
 def bullet_list(text: str) -> str:
-    """Turn a multi-line string into Markdown bullets. DONE for you."""
+    """Turn a multi-line string into Markdown bullets. """
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     return "\n".join(f"- {ln}" for ln in lines)
 
 
 def numbered_list(text: str) -> str:
-    """Turn a multi-line string into a numbered list. DONE for you."""
+    """Turn a multi-line string into a numbered list"""
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     return "\n".join(f"{i}. {ln}" for i, ln in enumerate(lines, 1))
 
@@ -53,29 +36,38 @@ def numbered_list(text: str) -> str:
 
 
 def build_report(report: LabReport) -> str:
-    """Build the whole lab report as a Markdown string.
+    Info = report.info
+    Content = report.content
+    AnalysisQuestions = report.analysis
+    Data = report.data
+    Calcs = report.calculations
+    table = []
 
-    A solid structure to aim for (change it to match what your teacher wants):
+    table.append(f"{Info.title or 'LabReport'}")
+    table.append(
+        f"**Name:** {Info.student_name} \n **Class:** {Info.course} \n **Date:** {Info.date} \n **Lab Partner/Partners:** {Info.partners}"
+    )
 
-        # <title>
-        **Name:** ...  **Class:** ...  **Date:** ...  **Partners:** ...
+    if Content.materials:
+        table.append("# Material List\n\n" + bullet_list(Content.materials))
 
-        ## Purpose
-        ## Hypothesis
-        ## Materials          <- bullet_list(report.content.materials)
-        ## Procedure          <- numbered_list(report.content.procedure)
-        ## Data               <- markdown_table(report.data)
-        ## Calculations       <- loop over report.calculations
-        ## Observations
-        ## Conclusion
+    if AnalysisQuestions:
+        Questions = []
+        for i, Q in enumerate(AnalysisQuestions, 1):
+            Questions.append(f"**{i}. {Q.question}**\n\n{Q.answer}")
+        table.append("## Analysis Questions\n\n" + "\n\n".join(Questions))
 
-    Tips:
-      - Build a list of string chunks and "\\n\\n".join(chunks) at the end.
-        Way easier than one giant f-string.
-      - Skip empty sections instead of printing a blank heading.
-      - For each CalcResult c, you have c.name, c.formula, c.work, and
-        c.pretty() for the formatted answer.
-    """
+    if Calcs:
+        calculatons = []
+        for cal in Calcs:
+            calculatons.append(f"**{cal.name} = {cal.pretty()}**\n\n {cal.work}")
+        table.append("## Calculations\n\n" + "\n\n".join(calculatons))
+
+    Mark_table = markdown_table(Data)
+    if Mark_table:
+        table.append("##Data\n\n" + Mark_table)
+
+    return "\n\n".join(table)
     raise NotBuiltYet("Step 3 — build_report in backend/report.py")
 
 

@@ -19,7 +19,14 @@ from __future__ import annotations
 import flet as ft
 
 from backend import chem, report as report_mod, vision
-from backend.models import DataTable, LabContent, LabInfo, LabReport, NotBuiltYet
+from backend.models import (
+    AnalysisQuestion,
+    DataTable,
+    LabContent,
+    LabInfo,
+    LabReport,
+    NotBuiltYet,
+)
 
 from .theme import ACCENT, MAX_WIDTH, SEED, banner, field, section
 
@@ -30,6 +37,8 @@ class LabReportApp:
         self.picked_images: list[tuple[bytes, str]] = []
         self.headers: list[str] = ["Trial", "Measurement", "Units"]
         self.rows: list[list[str]] = [["1", "", ""], ["2", "", ""], ["3", "", ""]]
+        # each entry is [question, answer]
+        self.analysis: list[list[str]] = [["", ""], ["", ""], ["", ""]]
         self.calc_results = []
 
         self._setup_page()
@@ -102,6 +111,7 @@ class LabReportApp:
                 self._written_section(),
                 self._data_section(),
                 self._calc_section(),
+                self._analysis_section(),
                 self._report_section(),
                 ft.Container(height=40),
             ],
@@ -205,7 +215,9 @@ class LabReportApp:
 
     def _read_images(self, e):
         self.pic_status.controls = [
-            ft.Row([ft.ProgressRing(width=16, height=16), ft.Text("Reading…")], spacing=10)
+            ft.Row(
+                [ft.ProgressRing(width=16, height=16), ft.Text("Reading…")], spacing=10
+            )
         ]
         self.page.update()
         try:
@@ -218,17 +230,16 @@ class LabReportApp:
             return
 
         self._apply_extracted(data or {})
-        self._show(self.pic_status, banner("Filled in from your picture. Check it!", "ok"))
+        self._show(
+            self.pic_status, banner("Filled in from your picture. Check it!", "ok")
+        )
 
     def _apply_extracted(self, data: dict):
         """Drop whatever the AI found into the matching boxes."""
         mapping = {
             "title": self.f_title,
-            "purpose": self.f_purpose,
-            "hypothesis": self.f_hypothesis,
             "materials": self.f_materials,
-            "procedure": self.f_procedure,
-            "observations": self.f_observations,
+            "safety": self.f_safety,
         }
         for key, control in mapping.items():
             val = data.get(key)
@@ -245,6 +256,19 @@ class LabReportApp:
                 else [["" for _ in self.headers]]
             )
             self._render_table()
+
+        questions = data.get("analysis_questions")
+        if isinstance(questions, list) and questions:
+            found = []
+            for q in questions:
+                if isinstance(q, dict):
+                    found.append([str(q.get("question", "")), str(q.get("answer", ""))])
+                elif isinstance(q, str):
+                    found.append([q, ""])
+            if found:
+                self.analysis = found
+                self._render_analysis()
+
         self.page.update()
 
     # -- 2. lab info ------------------------------------------------------
@@ -257,7 +281,9 @@ class LabReportApp:
         self.f_partners = field("Lab partners", "comma separated")
 
         def pair(a, b):
-            return ft.Row([ft.Container(a, expand=True), ft.Container(b, expand=True)], spacing=12)
+            return ft.Row(
+                [ft.Container(a, expand=True), ft.Container(b, expand=True)], spacing=12
+            )
 
         return section(
             "2. Lab info",
@@ -268,24 +294,27 @@ class LabReportApp:
             self.f_partners,
         )
 
-    # -- 3. written sections ----------------------------------------------
+    # -- 3. materials + safety --------------------------------------------
     def _written_section(self):
-        self.f_purpose = field("Purpose / objective", multiline=True, lines=2)
-        self.f_hypothesis = field("Hypothesis", "If… then… because…", multiline=True, lines=2)
-        self.f_materials = field("Materials — one per line", multiline=True, lines=4)
-        self.f_procedure = field("Procedure — one step per line", multiline=True, lines=4)
-        self.f_observations = field("Observations", multiline=True, lines=3)
-        self.f_conclusion = field("Conclusion", multiline=True, lines=4)
+        self.f_materials = field(
+            "Material list — one per line",
+            "250 mL beaker\ngraduated cylinder\nhot plate",
+            multiline=True,
+            lines=5,
+        )
+        self.f_safety = field(
+            "Safety precautions — one per line",
+            "Wear goggles at all times\nTie back long hair near the hot plate",
+            multiline=True,
+            lines=5,
+        )
 
         return section(
-            "3. The written parts",
+            "3. Materials & safety",
             ft.Icons.EDIT_NOTE,
-            self.f_purpose,
-            self.f_hypothesis,
             self.f_materials,
-            self.f_procedure,
-            self.f_observations,
-            self.f_conclusion,
+            self.f_safety,
+            subtitle="One item per line — they become bullet points in the report.",
         )
 
     # -- 4. data table ----------------------------------------------------
@@ -298,8 +327,12 @@ class LabReportApp:
             self.table_col,
             ft.Row(
                 [
-                    ft.OutlinedButton("Add row", icon=ft.Icons.ADD, on_click=self._add_row),
-                    ft.OutlinedButton("Add column", icon=ft.Icons.VIEW_COLUMN, on_click=self._add_col),
+                    ft.OutlinedButton(
+                        "Add row", icon=ft.Icons.ADD, on_click=self._add_row
+                    ),
+                    ft.OutlinedButton(
+                        "Add column", icon=ft.Icons.VIEW_COLUMN, on_click=self._add_col
+                    ),
                 ],
                 spacing=10,
             ),
@@ -343,7 +376,10 @@ class LabReportApp:
             return handler
 
         head = ft.Row(
-            [*[header_box(i) for i in range(len(self.headers))], ft.Container(width=40)],
+            [
+                *[header_box(i) for i in range(len(self.headers))],
+                ft.Container(width=40),
+            ],
             spacing=6,
         )
         body = []
@@ -388,7 +424,8 @@ class LabReportApp:
         self.calc_dd = ft.Dropdown(
             label="Calculation",
             options=[
-                ft.DropdownOption(key=k, text=v[0]) for k, v in chem.CALCULATIONS.items()
+                ft.DropdownOption(key=k, text=v[0])
+                for k, v in chem.CALCULATIONS.items()
             ],
             value=next(iter(chem.CALCULATIONS)),
             on_select=self._calc_changed,
@@ -402,7 +439,11 @@ class LabReportApp:
             ft.Row(
                 [
                     self.calc_dd,
-                    ft.FilledButton("Calculate & add", icon=ft.Icons.ADD_TASK, on_click=self._do_calc),
+                    ft.FilledButton(
+                        "Calculate & add",
+                        icon=ft.Icons.ADD_TASK,
+                        on_click=self._do_calc,
+                    ),
                 ],
                 spacing=12,
                 vertical_alignment=ft.CrossAxisAlignment.START,
@@ -418,7 +459,8 @@ class LabReportApp:
         key = self.calc_dd.value
         labels = chem.CALCULATIONS[key][1]
         self._input_fields = [
-            ft.TextField(label=lbl, dense=True, border_radius=8, width=240) for lbl in labels
+            ft.TextField(label=lbl, dense=True, border_radius=8, width=240)
+            for lbl in labels
         ]
         self.calc_inputs.controls = [ft.Row(self._input_fields, spacing=12, wrap=True)]
 
@@ -466,13 +508,24 @@ class LabReportApp:
                     [
                         ft.Column(
                             [
-                                ft.Text(f"{c.name} = {c.pretty()}", weight=ft.FontWeight.BOLD),
-                                ft.Text(c.work or c.formula, size=11, color=ft.Colors.ON_SURFACE_VARIANT),
+                                ft.Text(
+                                    f"{c.name} = {c.pretty()}",
+                                    weight=ft.FontWeight.BOLD,
+                                ),
+                                ft.Text(
+                                    c.work or c.formula,
+                                    size=11,
+                                    color=ft.Colors.ON_SURFACE_VARIANT,
+                                ),
                             ],
                             spacing=2,
                             expand=True,
                         ),
-                        ft.IconButton(icon=ft.Icons.DELETE_OUTLINE, icon_size=18, on_click=remove(i)),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE_OUTLINE,
+                            icon_size=18,
+                            on_click=remove(i),
+                        ),
                     ]
                 ),
                 bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
@@ -482,7 +535,88 @@ class LabReportApp:
             for i, c in enumerate(self.calc_results)
         ]
 
-    # -- 6. report --------------------------------------------------------
+    # -- 6. analysis questions ---------------------------------------------
+    def _analysis_section(self):
+        self.analysis_col = ft.Column(controls=[], spacing=10)
+        self._render_analysis()
+        return section(
+            "6. Analysis questions",
+            ft.Icons.QUIZ,
+            self.analysis_col,
+            ft.OutlinedButton(
+                "Add question", icon=ft.Icons.ADD, on_click=self._add_question
+            ),
+            subtitle="The questions off your lab sheet, plus your answers.",
+        )
+
+    def _render_analysis(self):
+        def q_box(i: int):
+            def on_change(e):
+                self.analysis[i][0] = e.control.value
+
+            return ft.TextField(
+                value=self.analysis[i][0],
+                label=f"Question {i + 1}",
+                dense=True,
+                text_size=13,
+                border_radius=8,
+                multiline=True,
+                min_lines=1,
+                max_lines=3,
+                expand=2,
+                on_change=on_change,
+            )
+
+        def a_box(i: int):
+            def on_change(e):
+                self.analysis[i][1] = e.control.value
+
+            return ft.TextField(
+                value=self.analysis[i][1],
+                label="Your answer",
+                dense=True,
+                text_size=13,
+                border_radius=8,
+                multiline=True,
+                min_lines=1,
+                max_lines=6,
+                expand=3,
+                on_change=on_change,
+            )
+
+        def del_question(i: int):
+            def handler(e):
+                if len(self.analysis) > 1:
+                    self.analysis.pop(i)
+                    self._render_analysis()
+                    self.page.update()
+
+            return handler
+
+        self.analysis_col.controls = [
+            ft.Row(
+                [
+                    q_box(i),
+                    a_box(i),
+                    ft.IconButton(
+                        icon=ft.Icons.CLOSE,
+                        icon_size=16,
+                        tooltip="Delete question",
+                        on_click=del_question(i),
+                    ),
+                ],
+                spacing=8,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+            for i in range(len(self.analysis))
+        ]
+
+    def _add_question(self, e):
+        self.analysis.append(["", ""])
+        self._render_analysis()
+        self.page.update()
+
+    # -- 7. report --------------------------------------------------------
     def _report_section(self):
         self.report_status = ft.Column(controls=[], spacing=8)
         self.preview = ft.Markdown(value="", selectable=True)
@@ -492,12 +626,14 @@ class LabReportApp:
         self._report_text = ""
 
         return section(
-            "6. Your report",
+            "7. Your report",
             ft.Icons.DESCRIPTION,
             ft.Row(
                 [
                     ft.FilledButton(
-                        "Generate report", icon=ft.Icons.PLAY_ARROW, on_click=self._generate
+                        "Generate report",
+                        icon=ft.Icons.PLAY_ARROW,
+                        on_click=self._generate,
                     ),
                     self.save_btn,
                 ],
@@ -523,15 +659,18 @@ class LabReportApp:
                 partners=self.f_partners.value or "",
             ),
             content=LabContent(
-                purpose=self.f_purpose.value or "",
-                hypothesis=self.f_hypothesis.value or "",
                 materials=self.f_materials.value or "",
-                procedure=self.f_procedure.value or "",
-                observations=self.f_observations.value or "",
-                conclusion=self.f_conclusion.value or "",
+                safety=self.f_safety.value or "",
             ),
-            data=DataTable(headers=list(self.headers), rows=[list(r) for r in self.rows]),
+            data=DataTable(
+                headers=list(self.headers), rows=[list(r) for r in self.rows]
+            ),
             calculations=list(self.calc_results),
+            analysis=[
+                AnalysisQuestion(question=q, answer=a)
+                for q, a in self.analysis
+                if q.strip() or a.strip()
+            ],
         )
 
     def _generate(self, e):
@@ -541,7 +680,9 @@ class LabReportApp:
             self._show(self.report_status, banner(f"Not built yet — {nb.step}", "todo"))
             return
         except Exception as ex:
-            self._show(self.report_status, banner(f"{type(ex).__name__}: {ex}", "error"))
+            self._show(
+                self.report_status, banner(f"{type(ex).__name__}: {ex}", "error")
+            )
             return
 
         self._report_text = text or ""

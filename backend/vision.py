@@ -28,13 +28,11 @@ from .models import NotBuiltYet
 # (Anything extra is ignored; anything missing is just left blank.)
 EXPECTED_KEYS = [
     "title",
-    "purpose",
-    "hypothesis",
-    "materials",
-    "procedure",
-    "observations",
-    "data_headers",  # list of strings
-    "data_rows",     # list of lists of strings
+    "materials",           # string, one item per line
+    "safety",              # string, one precaution per line
+    "data_headers",        # list of strings
+    "data_rows",           # list of lists of strings
+    "analysis_questions",  # list of {"question": ..., "answer": ...}
 ]
 
 
@@ -142,10 +140,12 @@ Use these keys (omit any you can't find, never invent data):
 {json.dumps(EXPECTED_KEYS, indent=2)}
 
 Rules:
-- "materials" and "procedure" are strings with one item per line.
+- "materials" and "safety" are strings with one item per line.
 - "data_headers" is a list of column names, e.g. ["Trial", "Mass (g)"].
 - "data_rows" is a list of rows, each row a list of strings, same length as
   data_headers.
+- "analysis_questions" is a list of objects, each {{"question": "...",
+  "answer": "..."}}. If the answer is blank on the page, use "".
 - Keep the student's own numbers exactly as written. Do not round or correct.
 - If the handwriting is unclear on a number, use your best read and nothing else.
 """
