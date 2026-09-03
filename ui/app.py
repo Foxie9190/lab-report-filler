@@ -679,6 +679,45 @@ class LabReportApp:
         )
         self._report_text = ""
 
+        # Word options — theme + a few toggles. The theme list comes straight
+        # from export_docx.THEMES, so adding one there adds it here.
+        self.theme_dd = ft.Dropdown(
+            label="Word theme",
+            options=[ft.DropdownOption(key=n, text=n) for n in export_docx.theme_names()],
+            value=export_docx.DEFAULT_THEME,
+            width=220,
+        )
+        self.opt_formulas = ft.Checkbox(label="Show formulas", value=True)
+        self.opt_stripes = ft.Checkbox(label="Striped data rows", value=True)
+        self.opt_unanswered = ft.Checkbox(label="Flag unanswered questions", value=True)
+        word_options = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text(
+                        "Word export options",
+                        size=12,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.ON_SURFACE_VARIANT,
+                    ),
+                    ft.Row(
+                        [
+                            self.theme_dd,
+                            self.opt_formulas,
+                            self.opt_stripes,
+                            self.opt_unanswered,
+                        ],
+                        spacing=14,
+                        wrap=True,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                ],
+                spacing=6,
+            ),
+            padding=12,
+            border_radius=8,
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+        )
+
         return section(
             "6. Your report",
             ft.Icons.DESCRIPTION,
@@ -695,6 +734,7 @@ class LabReportApp:
                 spacing=10,
                 wrap=True,
             ),
+            word_options,
             self.report_status,
             ft.Container(
                 content=self.preview,
@@ -751,7 +791,13 @@ class LabReportApp:
     async def _save_docx(self, e):
         """Build a .docx from the same form data and let the user save it."""
         try:
-            blob = export_docx.build_docx(self._collect())
+            options = export_docx.DocxOptions(
+                theme=self.theme_dd.value or export_docx.DEFAULT_THEME,
+                show_formulas=bool(self.opt_formulas.value),
+                striped_rows=bool(self.opt_stripes.value),
+                mark_unanswered=bool(self.opt_unanswered.value),
+            )
+            blob = export_docx.build_docx(self._collect(), options)
         except export_docx.DocxNotInstalled as missing:
             self._show(self.report_status, banner(str(missing), "todo"))
             return

@@ -9,33 +9,78 @@ dashes. Word wants a real table object, real bullet lists, real headings.
 Building straight from the LabReport gets you a document that looks like a
 document instead of a text file with symbols in it.
 
-Styling lives in the constants right below the imports — change a hex code
-there and the whole document follows.
+Themes live in THEMES below. Each one is six colours. Add a new entry and
+it shows up in the app's Theme dropdown automatically.
 
 Needs python-docx:  pip install python-docx
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from io import BytesIO
 
 from .models import LabReport
 
-# --- palette (matches the app's teal) --------------------------------------
-TEAL = "00796B"        # headings, table header, accents
-TEAL_DARK = "004D40"   # title band
-TEAL_LIGHT = "E0F2F1"  # banded rows, info strip
-MIST = "F4F7F7"        # calculation / answer boxes
-INK = "212121"         # body text
-SLATE = "5F6B6B"       # secondary text
-WHITE = "FFFFFF"
+# ---------------------------------------------------------------------------
+# Themes — six colours each. Keys are what the dropdown shows.
+#   accent  headings, table header, Q badges, box edges
+#   dark    the title band
+#   light   striped rows, info strip
+#   box     calculation / answer boxes
+#   ink     body text
+#   muted   secondary text (formulas, "not answered")
+# ---------------------------------------------------------------------------
+THEMES: dict[str, dict[str, str]] = {
+    "Teal": {
+        "accent": "00796B", "dark": "004D40", "light": "E0F2F1",
+        "box": "F4F7F7", "ink": "212121", "muted": "5F6B6B",
+    },
+    "Navy": {
+        "accent": "1E4E8C", "dark": "0F2C4F", "light": "E3ECF6",
+        "box": "F3F6FA", "ink": "1B1F24", "muted": "5C6773",
+    },
+    "Crimson": {
+        "accent": "B0263A", "dark": "6E1220", "light": "F9E4E7",
+        "box": "FAF4F5", "ink": "231A1B", "muted": "7A6265",
+    },
+    "Forest": {
+        "accent": "2E7D32", "dark": "1B4D1E", "light": "E6F2E6",
+        "box": "F4F8F4", "ink": "1C221C", "muted": "5E6B5E",
+    },
+    "Plum": {
+        "accent": "6A3FA0", "dark": "3D2263", "light": "EEE7F7",
+        "box": "F7F4FA", "ink": "1F1A26", "muted": "6B6076",
+    },
+    "Slate (print-friendly)": {
+        "accent": "37474F", "dark": "263238", "light": "ECEFF1",
+        "box": "F5F7F8", "ink": "1E1E1E", "muted": "6B7378",
+    },
+}
 
+DEFAULT_THEME = "Teal"
 BODY_FONT = "Calibri"
 MONO_FONT = "Consolas"
+WHITE = "FFFFFF"
+
+
+@dataclass
+class DocxOptions:
+    """Everything the user can choose before hitting Save as Word."""
+
+    theme: str = DEFAULT_THEME
+    show_formulas: bool = True     # the grey italic formula under each calc
+    striped_rows: bool = True      # alternate shading on data table rows
+    mark_unanswered: bool = True   # print "(not answered)" for blank answers
 
 
 class DocxNotInstalled(RuntimeError):
     """Raised when python-docx isn't available, so the UI can say so nicely."""
+
+
+def theme_names() -> list[str]:
+    """For the dropdown."""
+    return list(THEMES)
 
 
 def _lines(text: str) -> list[str]:
@@ -43,7 +88,7 @@ def _lines(text: str) -> list[str]:
     return [ln.strip() for ln in text.splitlines() if ln.strip()]
 
 
-def build_docx(report: LabReport) -> bytes:
+def build_docx(report: LabReport, options: DocxOptions | None = None) -> bytes:
     """Turn a LabReport into the bytes of a Word document.
 
     Same five sections as the Markdown report, in the same order:
@@ -62,6 +107,11 @@ def build_docx(report: LabReport) -> bytes:
             "Word export needs python-docx. Run:  pip install python-docx"
         ) from exc
 
+    opts = options or DocxOptions()
+    pal = THEMES.get(opts.theme, THEMES[DEFAULT_THEME])
+    ACCENT, DARK, LIGHT = pal["accent"], pal["dark"], pal["light"]
+    BOX, INK, MUTED = pal["box"], pal["ink"], pal["muted"]
+
     # ------------------------------------------------------------------
     # small helpers — python-docx has no API for shading or borders, so
     # these poke the underlying XML. Each one does exactly one thing.
@@ -71,7 +121,11 @@ def build_docx(report: LabReport) -> bytes:
 
     def shade(element, hex_fill: str):
         """Background colour on a paragraph (pPr) or table cell (tcPr)."""
-        pr = element.get_or_add_pPr() if hasattr(element, "get_or_add_pPr") else element._tc.get_or_add_tcPr()
+        pr = (
+            element.get_or_add_pPr()
+            if hasattr(element, "get_or_add_pPr")
+            else element._tc.get_or_add_tcPr()
+        )
         shd = OxmlElement("w:shd")
         shd.set(qn("w:val"), "clear")
         shd.set(qn("w:color"), "auto")
@@ -79,7 +133,6 @@ def build_docx(report: LabReport) -> bytes:
         pr.append(shd)
 
     def paragraph_border(paragraph, side: str, hex_color: str, size: int = 8, space: int = 1):
-        """One coloured border on a paragraph. side: top/bottom/left/right."""
         pPr = paragraph._p.get_or_add_pPr()
         pBdr = pPr.find(qn("w:pBdr"))
         if pBdr is None:
@@ -128,23 +181,18 @@ def build_docx(report: LabReport) -> bytes:
         run.font.italic = italic
         run.font.color.rgb = rgb(color)
         run.font.name = font
-        # East-Asian font slot too, or Word may fall back to a different face
         run._element.rPr.rFonts.set(qn("w:eastAsia"), font)
 
-    def spacing(paragraph, before=0, after=0, line=None):
+    def spacing(paragraph, before=0, after=0):
         fmt = paragraph.paragraph_format
         fmt.space_before = Pt(before)
         fmt.space_after = Pt(after)
-        if line is not None:
-            fmt.line_spacing = line
 
     def section_heading(text: str):
-        """Coloured heading with a teal rule under it — the section divider."""
         p = doc.add_paragraph()
         spacing(p, before=18, after=6)
-        paragraph_border(p, "bottom", TEAL, size=12, space=2)
-        run_style(p.add_run(text.upper()), size=13, bold=True, color=TEAL)
-        # letter-spacing, for that printed-handout look
+        paragraph_border(p, "bottom", ACCENT, size=12, space=2)
+        run_style(p.add_run(text.upper()), size=13, bold=True, color=ACCENT)
         rPr = p.runs[0]._element.get_or_add_rPr()
         sp = OxmlElement("w:spacing")
         sp.set(qn("w:val"), "20")
@@ -162,7 +210,6 @@ def build_docx(report: LabReport) -> bytes:
         cell_margins(cell, top=100, bottom=100, left=160, right=160)
         if accent:
             cell_borders(cell, accent, size=18, sides=("left",))
-        # the cell arrives with one empty paragraph — reuse it
         return cell
 
     def bullet(text: str):
@@ -190,18 +237,18 @@ def build_docx(report: LabReport) -> bytes:
     normal.element.rPr.rFonts.set(qn("w:eastAsia"), BODY_FONT)
 
     # ------------------------------------------------------------------
-    # title band — dark teal block with the lab title in white
+    # title band
     # ------------------------------------------------------------------
-    band = boxed(TEAL_DARK)
+    band = boxed(DARK)
     p = band.paragraphs[0]
     spacing(p, before=6, after=2)
-    run_style(p.add_run("CHEMISTRY LAB REPORT"), size=9, bold=True, color=TEAL_LIGHT)
+    run_style(p.add_run("CHEMISTRY LAB REPORT"), size=9, bold=True, color=LIGHT)
     p2 = band.add_paragraph()
     spacing(p2, before=0, after=6)
     run_style(p2.add_run(info.title or "Lab Report"), size=24, bold=True, color=WHITE)
 
     # ------------------------------------------------------------------
-    # who / what / when — light strip under the band, two columns
+    # who / what / when
     # ------------------------------------------------------------------
     header_bits = [
         ("Name", info.student_name),
@@ -219,20 +266,19 @@ def build_docx(report: LabReport) -> bytes:
         strip_table_borders(t)
         for i, (key, value) in enumerate(filled):
             cell = t.rows[i // cols].cells[i % cols]
-            shade(cell, TEAL_LIGHT)
+            shade(cell, LIGHT)
             cell_margins(cell, top=70, bottom=70, left=160, right=120)
             cp = cell.paragraphs[0]
             spacing(cp)
-            run_style(cp.add_run(f"{key.upper()}  "), size=8, bold=True, color=TEAL)
+            run_style(cp.add_run(f"{key.upper()}  "), size=8, bold=True, color=ACCENT)
             run_style(cp.add_run(value), size=11, color=INK)
-        # fill the odd empty cell so the strip stays a solid block
         if len(filled) % cols:
             last = t.rows[-1].cells[-1]
-            shade(last, TEAL_LIGHT)
+            shade(last, LIGHT)
             cell_margins(last, top=70, bottom=70)
 
     # ------------------------------------------------------------------
-    # material list
+    # material list / safety precautions
     # ------------------------------------------------------------------
     materials = _lines(content.materials)
     if materials:
@@ -240,9 +286,6 @@ def build_docx(report: LabReport) -> bytes:
         for item in materials:
             bullet(item)
 
-    # ------------------------------------------------------------------
-    # safety precautions
-    # ------------------------------------------------------------------
     safety = _lines(content.safety)
     if safety:
         section_heading("Safety precautions")
@@ -250,7 +293,7 @@ def build_docx(report: LabReport) -> bytes:
             bullet(item)
 
     # ------------------------------------------------------------------
-    # data table — teal header, banded rows
+    # data table
     # ------------------------------------------------------------------
     data = report.data
     if data.headers and data.rows:
@@ -260,7 +303,7 @@ def build_docx(report: LabReport) -> bytes:
         strip_table_borders(t)
 
         for cell, header in zip(t.rows[0].cells, data.headers):
-            shade(cell, TEAL)
+            shade(cell, ACCENT)
             cell_margins(cell)
             cp = cell.paragraphs[0]
             cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -269,18 +312,18 @@ def build_docx(report: LabReport) -> bytes:
 
         for r, row in enumerate(data.rows):
             cells = t.add_row().cells
-            fill = TEAL_LIGHT if r % 2 == 0 else WHITE
+            fill = LIGHT if (opts.striped_rows and r % 2 == 0) else WHITE
             for i, cell in enumerate(cells):
                 shade(cell, fill)
                 cell_margins(cell)
-                cell_borders(cell, TEAL_LIGHT, size=4, sides=("bottom",))
+                cell_borders(cell, LIGHT, size=4, sides=("bottom",))
                 cp = cell.paragraphs[0]
                 cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 spacing(cp)
                 run_style(cp.add_run(str(row[i]) if i < len(row) else ""), size=10.5)
 
     # ------------------------------------------------------------------
-    # calculations — each one in a soft box with a teal edge
+    # calculations
     # ------------------------------------------------------------------
     if report.calculations:
         section_heading("Calculations")
@@ -289,17 +332,17 @@ def build_docx(report: LabReport) -> bytes:
             spacing(gap, after=0)
             gap.paragraph_format.line_spacing = Pt(6)
 
-            box = boxed(MIST, accent=TEAL)
+            box = boxed(BOX, accent=ACCENT)
             head = box.paragraphs[0]
             spacing(head, after=2)
-            run_style(head.add_run(calc.name), size=11, bold=True, color=TEAL)
-            run_style(head.add_run("   =   "), size=11, color=SLATE)
+            run_style(head.add_run(calc.name), size=11, bold=True, color=ACCENT)
+            run_style(head.add_run("   =   "), size=11, color=MUTED)
             run_style(head.add_run(calc.pretty()), size=13, bold=True, color=INK)
 
-            if calc.formula:
+            if opts.show_formulas and calc.formula:
                 fp = box.add_paragraph()
                 spacing(fp, after=4)
-                run_style(fp.add_run(calc.formula), size=9, italic=True, color=SLATE)
+                run_style(fp.add_run(calc.formula), size=9, italic=True, color=MUTED)
 
             for line in (calc.work or "").splitlines():
                 if not line.strip():
@@ -310,24 +353,24 @@ def build_docx(report: LabReport) -> bytes:
                 run_style(wp.add_run(line.strip()), size=10, color=INK, font=MONO_FONT)
 
     # ------------------------------------------------------------------
-    # analysis questions — numbered badge, bold question, boxed answer
+    # analysis questions
     # ------------------------------------------------------------------
     if report.analysis:
         section_heading("Analysis questions")
         for i, item in enumerate(report.analysis, 1):
             qp = doc.add_paragraph()
             spacing(qp, before=10, after=3)
-            run_style(qp.add_run(f"Q{i}  "), size=11, bold=True, color=TEAL)
+            run_style(qp.add_run(f"Q{i}  "), size=11, bold=True, color=ACCENT)
             run_style(qp.add_run(item.question), size=11, bold=True, color=INK)
 
-            box = boxed(MIST, accent=TEAL_LIGHT)
+            box = boxed(BOX, accent=LIGHT)
             ap = box.paragraphs[0]
             spacing(ap)
             answer = item.answer.strip()
             if answer:
                 run_style(ap.add_run(answer), size=11, color=INK)
-            else:
-                run_style(ap.add_run("(not answered)"), size=10, italic=True, color=SLATE)
+            elif opts.mark_unanswered:
+                run_style(ap.add_run("(not answered)"), size=10, italic=True, color=MUTED)
 
     buffer = BytesIO()
     doc.save(buffer)
