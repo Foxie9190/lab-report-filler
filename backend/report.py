@@ -37,7 +37,6 @@ def build_report(report: LabReport) -> str:
     Info = report.info
     Content = report.content
     AnalysisQuestions = report.analysis
-    Data = report.data
     Calcs = report.calculations
     table = []
 
@@ -61,8 +60,13 @@ def build_report(report: LabReport) -> str:
             calculatons.append(f"**{cal.name} = {cal.pretty()}**\n\n {cal.work}")
         table.append("## Calculations\n\n" + "\n\n".join(calculatons))
 
-    Mark_table = markdown_table(Data)
-    if Mark_table:
-        table.append("##Data\n\n" + Mark_table)
+    # One report can have several tables. Each prints under its own name.
+    data_chunks = []
+    for i, dt in enumerate(report.tables, 1):
+        md = markdown_table(dt)
+        if md:
+            data_chunks.append(f"**{dt.title or f'Table {i}'}**\n\n{md}")
+    if data_chunks:
+        table.append("## Data\n\n" + "\n\n".join(data_chunks))
 
     return "\n\n".join(table)

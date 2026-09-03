@@ -12,7 +12,7 @@ The report template these follow:
     Title of lab -> LabInfo.title
     Material list -> LabContent.materials
     Safety precautions -> LabContent.safety
-    Data tables -> DataTable
+    Data tables -> list[DataTable]  (report.tables)
     Analysis questions -> list[AnalysisQuestion]
 """
 
@@ -59,8 +59,9 @@ class AnalysisQuestion:
 
 @dataclass
 class DataTable:
-    """The measurements table.
+    """One measurements table. A report can have several.
 
+    title:   e.g. "Trial masses" — optional, printed above the table
     headers: e.g. ["Trial", "Mass (g)", "Volume (mL)"]
     rows:    e.g. [["1", "12.4", "5.0"], ["2", "12.6", "5.1"]]
 
@@ -68,6 +69,7 @@ class DataTable:
     Convert to float in your chem functions (and handle blanks!).
     """
 
+    title: str = ""
     headers: list[str] = field(
         default_factory=lambda: ["Trial", "Measurement", "Units"]
     )
@@ -111,7 +113,7 @@ class LabReport:
 
     info: LabInfo = field(default_factory=LabInfo)
     content: LabContent = field(default_factory=LabContent)
-    data: DataTable = field(default_factory=DataTable)
+    tables: list[DataTable] = field(default_factory=list)  # in the order shown
     calculations: list[CalcResult] = field(default_factory=list)
     analysis: list[AnalysisQuestion] = field(default_factory=list)
 

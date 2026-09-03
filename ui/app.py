@@ -67,8 +67,8 @@ def _swap_unit(work: str, old: str, new: str) -> str:
 class LabReportApp:
     def __init__(self, page: ft.Page):
         self.page = page
-        self.headers: list[str] = ["Trial", "Measurement", "Units"]
-        self.rows: list[list[str]] = [["1", "", ""], ["2", "", ""], ["3", "", ""]]
+        # Each table: {"title": str, "headers": [..], "rows": [[..], ..]}
+        self.tables: list[dict] = [self._blank_table()]
         # each entry is [question, answer]
         self.analysis: list[list[str]] = [["", ""], ["", ""], ["", ""]]
         self.calc_results = []
@@ -214,35 +214,47 @@ class LabReportApp:
             subtitle="One item per line — they become bullet points in the report.",
         )
 
-    # -- 3. data table --------------------------------------------------
+    # -- 3. data tables -------------------------------------------------
+    @staticmethod
+    def _blank_table() -> dict:
+        return {
+            "title": "",
+            "headers": ["Trial", "Measurement", "Units"],
+            "rows": [["1", "", ""], ["2", "", ""], ["3", "", ""]],
+        }
+
     def _data_section(self):
-        self.table_col = ft.Column(controls=[], spacing=6)
-        self._render_table()
+        self.tables_col = ft.Column(controls=[], spacing=14)
+        self._render_tables()
         return section(
-            "3. Data table",
+            "3. Data tables",
             ft.Icons.TABLE_CHART,
-            self.table_col,
-            ft.Row(
-                [
-                    ft.OutlinedButton(
-                        "Add row", icon=ft.Icons.ADD, on_click=self._add_row
-                    ),
-                    ft.OutlinedButton(
-                        "Add column", icon=ft.Icons.VIEW_COLUMN, on_click=self._add_col
-                    ),
-                ],
-                spacing=10,
+            self.tables_col,
+            ft.OutlinedButton(
+                "Add table", icon=ft.Icons.ADD_CHART, on_click=self._add_table
             ),
-            subtitle="Edit the column names to match your lab.",
+            subtitle="Edit the column names to match your lab. Add more tables if one lab needs several.",
         )
 
-    def _render_table(self):
+    def _render_tables(self):
+        self.tables_col.controls = [
+            self._table_card(i) for i in range(len(self.tables))
+        ]
+
+    def _table_card(self, t: int) -> ft.Control:
+        """One editable table: title, header row, data rows, its own buttons."""
+        table = self.tables[t]
+        headers, rows = table["headers"], table["rows"]
+
+        def on_title(e):
+            table["title"] = e.control.value
+
         def header_box(i: int):
             def on_change(e):
-                self.headers[i] = e.control.value
+                headers[i] = e.control.value
 
             return ft.TextField(
-                value=self.headers[i],
+                value=headers[i],
                 dense=True,
                 text_size=13,
                 border_radius=6,
@@ -252,10 +264,10 @@ class LabReportApp:
 
         def cell_box(r: int, c: int):
             def on_change(e):
-                self.rows[r][c] = e.control.value
+                rows[r][c] = e.control.value
 
             return ft.TextField(
-                value=self.rows[r][c] if c < len(self.rows[r]) else "",
+                value=rows[r][c] if c < len(rows[r]) else "",
                 dense=True,
                 text_size=13,
                 border_radius=6,
@@ -265,28 +277,73 @@ class LabReportApp:
 
         def del_row(r: int):
             def handler(e):
-                if len(self.rows) > 1:
-                    self.rows.pop(r)
-                    self._render_table()
+                if len(rows) > 1:
+                    rows.pop(r)
+                    self._render_tables()
                     self.page.update()
 
             return handler
 
-        head = ft.Row(
+        def add_row(e):
+            rows.append(["" for _ in headers])
+            self._render_tables()
+            self.page.update()
+
+        def add_col(e):
+            headers.append(f"Column {len(headers) + 1}")
+            for row in rows:
+                row.append("")
+            self._render_tables()
+            self.page.update()
+
+        def remove_col(e):
+            if len(headers) > 1:
+                headers.pop()
+                for row in rows:
+                    if len(row) >= len(headers) + 1:
+                        row.pop()
+                self._render_tables()
+                self.page.update()
+
+        def delete_table(e):
+            if len(self.tables) > 1:
+                self.tables.pop(t)
+                self._render_tables()
+                self.page.update()
+
+        title_row = ft.Row(
             [
-                *[header_box(i) for i in range(len(self.headers))],
-                ft.Container(width=40),
+                ft.TextField(
+                    label=f"Table {t + 1} name",
+                    hint_text="e.g. Trial masses",
+                    value=table["title"],
+                    dense=True,
+                    border_radius=8,
+                    expand=True,
+                    on_change=on_title,
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    tooltip="Delete this table",
+                    disabled=len(self.tables) == 1,
+                    on_click=delete_table,
+                ),
             ],
             spacing=6,
         )
+
+        head = ft.Row(
+            [*[header_box(i) for i in range(len(headers))], ft.Container(width=40)],
+            spacing=6,
+        )
         body = []
-        for r in range(len(self.rows)):
-            while len(self.rows[r]) < len(self.headers):
-                self.rows[r].append("")
+        for r in range(len(rows)):
+            while len(rows[r]) < len(headers):
+                rows[r].append("")
             body.append(
                 ft.Row(
                     [
-                        *[cell_box(r, c) for c in range(len(self.headers))],
+                        *[cell_box(r, c) for c in range(len(headers))],
                         ft.IconButton(
                             icon=ft.Icons.CLOSE,
                             icon_size=16,
@@ -297,18 +354,34 @@ class LabReportApp:
                     spacing=6,
                 )
             )
-        self.table_col.controls = [head, *body]
 
-    def _add_row(self, e):
-        self.rows.append(["" for _ in self.headers])
-        self._render_table()
-        self.page.update()
+        buttons = ft.Row(
+            [
+                ft.OutlinedButton("Add row", icon=ft.Icons.ADD, on_click=add_row),
+                ft.OutlinedButton(
+                    "Add column", icon=ft.Icons.VIEW_COLUMN, on_click=add_col
+                ),
+                ft.OutlinedButton(
+                    "Remove last column",
+                    icon=ft.Icons.REMOVE,
+                    disabled=len(headers) == 1,
+                    on_click=remove_col,
+                ),
+            ],
+            spacing=10,
+            wrap=True,
+        )
 
-    def _add_col(self, e):
-        self.headers.append(f"Column {len(self.headers) + 1}")
-        for r in self.rows:
-            r.append("")
-        self._render_table()
+        return ft.Container(
+            content=ft.Column([title_row, head, *body, buttons], spacing=6),
+            padding=12,
+            border_radius=8,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+        )
+
+    def _add_table(self, e):
+        self.tables.append(self._blank_table())
+        self._render_tables()
         self.page.update()
 
     # -- 4. calculations ------------------------------------------------
@@ -758,9 +831,14 @@ class LabReportApp:
                 materials=self.f_materials.value or "",
                 safety=self.f_safety.value or "",
             ),
-            data=DataTable(
-                headers=list(self.headers), rows=[list(r) for r in self.rows]
-            ),
+            tables=[
+                DataTable(
+                    title=(tb["title"] or "").strip(),
+                    headers=list(tb["headers"]),
+                    rows=[list(r) for r in tb["rows"]],
+                )
+                for tb in self.tables
+            ],
             calculations=list(self.calc_results),
             analysis=[
                 AnalysisQuestion(question=q, answer=a)

@@ -293,34 +293,39 @@ def build_docx(report: LabReport, options: DocxOptions | None = None) -> bytes:
             bullet(item)
 
     # ------------------------------------------------------------------
-    # data table
+    # data tables — one report can have several
     # ------------------------------------------------------------------
-    data = report.data
-    if data.headers and data.rows:
+    real_tables = [dt for dt in report.tables if dt.headers and dt.rows]
+    if real_tables:
         section_heading("Data")
-        t = doc.add_table(rows=1, cols=len(data.headers))
-        t.alignment = WD_TABLE_ALIGNMENT.CENTER
-        strip_table_borders(t)
+        for n, data in enumerate(real_tables, 1):
+            cap = doc.add_paragraph()
+            spacing(cap, before=8 if n > 1 else 2, after=4)
+            run_style(cap.add_run(data.title or f"Table {n}"), size=10.5, bold=True, color=ACCENT)
 
-        for cell, header in zip(t.rows[0].cells, data.headers):
-            shade(cell, ACCENT)
-            cell_margins(cell)
-            cp = cell.paragraphs[0]
-            cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            spacing(cp)
-            run_style(cp.add_run(str(header)), size=10, bold=True, color=WHITE)
+            t = doc.add_table(rows=1, cols=len(data.headers))
+            t.alignment = WD_TABLE_ALIGNMENT.CENTER
+            strip_table_borders(t)
 
-        for r, row in enumerate(data.rows):
-            cells = t.add_row().cells
-            fill = LIGHT if (opts.striped_rows and r % 2 == 0) else WHITE
-            for i, cell in enumerate(cells):
-                shade(cell, fill)
+            for cell, header in zip(t.rows[0].cells, data.headers):
+                shade(cell, ACCENT)
                 cell_margins(cell)
-                cell_borders(cell, LIGHT, size=4, sides=("bottom",))
                 cp = cell.paragraphs[0]
                 cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 spacing(cp)
-                run_style(cp.add_run(str(row[i]) if i < len(row) else ""), size=10.5)
+                run_style(cp.add_run(str(header)), size=10, bold=True, color=WHITE)
+
+            for r, row in enumerate(data.rows):
+                cells = t.add_row().cells
+                fill = LIGHT if (opts.striped_rows and r % 2 == 0) else WHITE
+                for i, cell in enumerate(cells):
+                    shade(cell, fill)
+                    cell_margins(cell)
+                    cell_borders(cell, LIGHT, size=4, sides=("bottom",))
+                    cp = cell.paragraphs[0]
+                    cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    spacing(cp)
+                    run_style(cp.add_run(str(row[i]) if i < len(row) else ""), size=10.5)
 
     # ------------------------------------------------------------------
     # calculations
