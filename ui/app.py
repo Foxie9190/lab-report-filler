@@ -19,7 +19,7 @@ import re
 
 import flet as ft
 
-from backend import chem, export_docx, report as report_mod
+from backend import chem, export_docx, report as report_mod, updates
 from backend.models import (
     AnalysisQuestion,
     CalcResult,
@@ -118,7 +118,7 @@ class LabReportApp:
                                 color=ft.Colors.WHITE,
                             ),
                             ft.Text(
-                                "Chemistry — fill it in, or let a photo do it",
+                                f"Chemistry lab reports, done right  ·  v{updates.VERSION}",
                                 size=12,
                                 color=ft.Colors.WHITE70,
                             ),
@@ -139,8 +139,12 @@ class LabReportApp:
             padding=20,
         )
 
+        # Stays empty unless the update check finds a newer release.
+        self.update_slot = ft.Column(controls=[], spacing=0)
+
         body = ft.Column(
             controls=[
+                self.update_slot,
                 self._info_section(),
                 self._written_section(),
                 self._data_section(),
@@ -167,6 +171,52 @@ class LabReportApp:
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             )
         )
+
+        # Ask GitHub about newer releases without holding up the window.
+        self.page.run_thread(self._check_for_update)
+
+    # -- update check ---------------------------------------------------
+    def _check_for_update(self):
+        """Runs on a background thread. Fills the slot if there's a newer
+        release; does nothing at all if we're current or offline."""
+        found = updates.check_for_update()
+        if not found:
+            return
+
+        def open_download(e):
+            self.page.launch_url(found.url)
+
+        def dismiss(e):
+            self.update_slot.controls = []
+            self.page.update()
+
+        self.update_slot.controls = [
+            ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.NEW_RELEASES, color=ACCENT, size=20),
+                        ft.Text(
+                            f"Version {found.version} is available — you have v{updates.VERSION}.",
+                            size=13,
+                            expand=True,
+                        ),
+                        ft.FilledTonalButton(
+                            "Download", icon=ft.Icons.DOWNLOAD, on_click=open_download
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.CLOSE, icon_size=16, tooltip="Not now", on_click=dismiss
+                        ),
+                    ],
+                    spacing=10,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                padding=ft.Padding(14, 8, 8, 8),
+                border_radius=8,
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+                border=ft.Border.all(1, ACCENT),
+            )
+        ]
+        self.page.update()
 
     # -- 1. lab info ----------------------------------------------------
     def _info_section(self):

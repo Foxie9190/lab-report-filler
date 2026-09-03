@@ -4,7 +4,10 @@ A Mac app for writing chemistry lab reports. Fill in the form, let it do
 the math and show the work, and get a finished Word document you can
 turn in.
 
-No account. No internet. Nothing leaves your computer.
+No account. Nothing you type leaves your computer. The only time it
+touches the internet is a quick check on launch for a newer version — if
+there is one, a strip at the top offers a download link. That's all it
+does; it never installs anything on its own.
 
 ![Lab info, materials and data tables](assets/Screenshot1.png)
 
@@ -99,6 +102,13 @@ Three toggles sit next to it:
   an answer blank, so you catch it before you submit. Turn it off for a
   clean copy.
 
+## Updating
+
+When a new version is out, the app tells you at the top the next time
+you open it. Click **Download**, grab the zip from the Releases page,
+and replace the old app with the new one — same as installing it the
+first time. Your reports aren't stored in the app, so nothing is lost.
+
 ## Troubleshooting
 
 **"Lab Report Filler can't be opened" / "is damaged"** — see step 4 under
@@ -173,7 +183,22 @@ automatically.
 
 **Change the app's colors.** `ui/theme.py`, top of the file.
 
-### Building the .app
+### Releasing a version
+
+Bump `VERSION` in `backend/updates.py`, commit, then tag it with the
+same number and push the tag:
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+GitHub Actions builds the Mac and Windows apps and attaches them to a
+Release. Apps already out in the world will see the new tag and show
+the update strip. The version and the tag must match — the app compares
+them to decide whether to show it.
+
+### Building the .app by hand
 
 ```bash
 pip install pyinstaller
