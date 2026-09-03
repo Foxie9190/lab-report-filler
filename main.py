@@ -10,15 +10,6 @@ import sys
 
 import flet as ft
 
-# Loads your ANTHROPIC_API_KEY out of the .env file, if you made one.
-# Wrapped in try/except so the app still runs before you pip install anything.
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass
-
 from ui import LabReportApp
 
 
@@ -33,6 +24,5 @@ if __name__ == "__main__":
         main,
         view=ft.AppView.FLET_APP if desktop else ft.AppView.WEB_BROWSER,
         port=8550,
-        upload_dir="uploads",
         assets_dir="assets",
     )

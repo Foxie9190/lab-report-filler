@@ -1,5 +1,3 @@
-
-
 from __future__ import annotations
 
 from .models import DataTable, LabReport, NotBuiltYet
@@ -19,7 +17,7 @@ def markdown_table(data: DataTable) -> str:
 
 
 def bullet_list(text: str) -> str:
-    """Turn a multi-line string into Markdown bullets. """
+    """Turn a multi-line string into Markdown bullets."""
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     return "\n".join(f"- {ln}" for ln in lines)
 
@@ -68,22 +66,3 @@ def build_report(report: LabReport) -> str:
         table.append("##Data\n\n" + Mark_table)
 
     return "\n\n".join(table)
-    raise NotBuiltYet("Step 3 — build_report in backend/report.py")
-
-
-def suggest_conclusion(report: LabReport) -> str:
-    """OPTIONAL BONUS, do this last (or never).
-
-    Write a draft conclusion paragraph from the data + calculations, so the
-    app gives you a starting point instead of a blank box.
-
-    Two ways to do it:
-      a) Templates + f-strings — no API needed, totally predictable.
-      b) Send the report to Claude's API like vision.py does and ask for a
-         paragraph.
-
-    Be honest with yourself about (b): a conclusion is the part your teacher
-    is actually grading you on. Use it as a first draft you rewrite, not as
-    something to paste in. Check your school's rules on AI too.
-    """
-    raise NotBuiltYet("Bonus — suggest_conclusion in backend/report.py")

@@ -43,7 +43,7 @@ def percent_error(experimental: float, accepted: float) -> CalcResult:
         name="Percent Error",
         formula="|experimental - accepted| / |accepted| x 100",
         value=value,
-        unit="%",
+        unit="g/mL",
         work=(
             f"|{experimental} - {accepted}| / |{accepted}| x 100\n"
             f"= {difference:.4g} / {abs(accepted):.4g} x 100\n"
@@ -59,27 +59,36 @@ def percent_error(experimental: float, accepted: float) -> CalcResult:
 
 
 def percent_yield(actual_g: float, theoretical_g: float) -> CalcResult:
-    """actual / theoretical x 100.
-
-    Almost identical to percent_error — good one to do first.
-    Guard against theoretical_g == 0.
-    """
-    raise NotBuiltYet("Step 1a — percent_yield in backend/chem.py")
+    if theoretical_g != 0:
+        value = round((actual_g / theoretical_g) * 100)
+        return CalcResult(
+            name="Percent Yield",
+            formula="(Theoretical g ÷ actual g) x 100",
+            value=value,
+            unit="g/mL",
+            work=f"{theoretical_g} ÷ {actual_g} * 100 = {value:.4g}",
+        )
+    else:
+        raise ValueError("You cannot Divide By Zero")
 
 
 def density(mass_g: float, volume_ml: float) -> CalcResult:
-    """density = mass / volume.  Unit is "g/mL".
-
-    Guard against volume_ml == 0.
-    """
-    raise NotBuiltYet("Step 1b — density in backend/chem.py")
+    if volume_ml != 0:
+        value = mass_g / volume_ml
+        return CalcResult(
+            name="Density",
+            formula="Mass ÷ Volume",
+            value=value,
+            unit="g/mL",
+            work=f"{mass_g} ÷ {volume_ml} = {value:.4g}",
+        )
+    else:
+        raise ValueError("You cannot Divide By Zero")
 
 
 def moles_from_grams(grams: float, molar_mass: float) -> CalcResult:
-    """moles = grams / molar mass.  Unit is "mol".
 
-    Guard against molar_mass <= 0 (a molar mass can never be zero or negative).
-    """
+    # Guard against molar_mass <= 0 (a molar mass can never be zero or negative).
     raise NotBuiltYet("Step 1c — moles_from_grams in backend/chem.py")
 
 
@@ -96,10 +105,24 @@ def molarity(moles: float, liters: float) -> CalcResult:
 def average(values: list[float], label: str = "Average", unit: str = "") -> CalcResult:
     """Mean of a list of numbers — handy for averaging trials.
 
-    Guard against an empty list.
-    For `work`, something like "(12.4 + 12.6 + 12.5) / 3 = 12.5" reads nicely.
+    `label` and `unit` come from the caller, because this one averages
+    anything — masses, temperatures, volumes. Only the caller knows which.
     """
-    raise NotBuiltYet("Step 1e — average in backend/chem.py")
+    if not values:
+        raise ValueError("Nothing to average — add at least one value.")
+
+    number = 0
+    for num in values:
+        number += num
+    final_val = number / len(values)
+    shown = " + ".join(f"{v:g}" for v in values)
+    return CalcResult(
+        name=label,
+        formula="all values added, then divided by how many there are",
+        value=final_val,
+        unit=unit,
+        work=f"({shown}) / {len(values)} = {final_val:.4g}",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -109,9 +132,24 @@ def average(values: list[float], label: str = "Average", unit: str = "") -> Calc
 # Add your own entries here if you write extra calculations.
 # ---------------------------------------------------------------------------
 CALCULATIONS = {
-    "percent_error": ("Percent Error", ["Experimental value", "Accepted value"], percent_error),
-    "percent_yield": ("Percent Yield", ["Actual yield (g)", "Theoretical yield (g)"], percent_yield),
+    "percent_error": (
+        "Percent Error",
+        ["Experimental value", "Accepted value"],
+        percent_error,
+    ),
+    "percent_yield": (
+        "Percent Yield",
+        ["Actual yield (g)", "Theoretical yield (g)"],
+        percent_yield,
+    ),
     "density": ("Density", ["Mass (g)", "Volume (mL)"], density),
-    "moles_from_grams": ("Moles from Grams", ["Mass (g)", "Molar mass (g/mol)"], moles_from_grams),
+    "moles_from_grams": (
+        "Moles from Grams",
+        ["Mass (g)", "Molar mass (g/mol)"],
+        moles_from_grams,
+    ),
     "molarity": ("Molarity", ["Moles of solute", "Liters of solution"], molarity),
+    # Average takes a LIST, so the UI gives it a one-at-a-time value entry
+    # instead of a box per label. See LIST_INPUTS in ui/app.py.
+    "average": ("Average", ["Value"], average),
 }

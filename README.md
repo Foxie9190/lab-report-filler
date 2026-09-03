@@ -1,8 +1,7 @@
 # Lab Report Filler
 
-A web app for chemistry lab reports. Type your data in — or hand it a photo of
-your handwritten table and let it fill the form — then it builds a formatted
-report you can save.
+A web app for chemistry lab reports. Type your data in and it builds a
+formatted report you can save.
 
 Built with Flet (Python), so the whole thing is Python. No HTML, no JavaScript.
 
@@ -25,17 +24,6 @@ Desktop window instead of a browser tab:
 python main.py desktop
 ```
 
-## The AI part (optional)
-
-The app works fully without it. To turn on photo reading:
-
-```bash
-cp .env.example .env
-```
-
-Paste an [Anthropic API key](https://console.anthropic.com) into `.env` and
-restart. See `BACKEND_GUIDE.md` Step 2.
-
 ## What's where
 
 ```
@@ -45,9 +33,8 @@ ui/                  the interface — Claude's part, already done
   theme.py             colors and the card/banner helpers
 backend/             the brains — YOUR part
   models.py            shared data shapes (done, just read it)
-  chem.py              chemistry math          <- Step 1
-  vision.py            photo -> form fields    <- Step 2
-  report.py            builds the Markdown     <- Step 3
+  chem.py              chemistry math          <- Step 2
+  report.py            builds the Markdown     <- Step 1
 BACKEND_GUIDE.md     step-by-step instructions for the above
 ```
 
@@ -62,7 +49,6 @@ The UI never reaches into your logic. It only ever calls:
 | UI action | Your function |
 |---|---|
 | *Calculate & add* | `chem.CALCULATIONS[key][2](...)` |
-| *Read with AI* | `vision.extract_from_images(...)` |
 | *Generate report* | `report.build_report(...)` |
 
 They pass the objects in `backend/models.py` back and forth. As long as your

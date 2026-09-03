@@ -6,9 +6,8 @@ every backend function you're going to write. But it's plain Flet, so poke
 at it once things run.
 
 How it talks to your backend:
-    backend.chem.CALCULATIONS   -> builds the calculation dropdown
-    backend.vision.extract_from_images(...)  -> the picture button
-    backend.report.build_report(...)         -> the Generate button
+    backend.chem.CALCULATIONS        -> builds the calculation dropdown
+    backend.report.build_report(...) -> the Generate button
 
 If one of your functions still raises NotBuiltYet, the app shows an amber
 "this part is yours" strip instead of crashing.
@@ -16,11 +15,14 @@ If one of your functions still raises NotBuiltYet, the app shows an amber
 
 from __future__ import annotations
 
+import re
+
 import flet as ft
 
-from backend import chem, report as report_mod, vision
+from backend import chem, export_docx, report as report_mod
 from backend.models import (
     AnalysisQuestion,
+    CalcResult,
     DataTable,
     LabContent,
     LabInfo,
@@ -31,19 +33,52 @@ from backend.models import (
 from .theme import ACCENT, MAX_WIDTH, SEED, banner, field, section
 
 
+# Default unit for each calculation — used to prefill the Unit box.
+# Anything not listed here starts blank. Add your own calculations here
+# if you want their units prefilled too.
+# Calculations that take one LIST of numbers instead of a fixed set of boxes.
+# These get the "add a value at a time" entry instead of one box per label.
+LIST_INPUTS = {"average"}
+
+UNIT_HINTS = {
+    "percent_error": "%",
+    "percent_yield": "%",
+    "density": "g/mL",
+    "moles_from_grams": "mol",
+    "molarity": "M",
+}
+
+
+def _swap_unit(work: str, old: str, new: str) -> str:
+    """Rewrite the unit inside a shown-work string when it gets overridden.
+
+    Only replaces the unit as a standalone token, so the "g" in "grams"
+    is left alone.
+    """
+    if not work or not old or old == new:
+        return work
+    pattern = r"(?<![A-Za-z0-9])" + re.escape(old) + r"(?![A-Za-z0-9])"
+    out = re.sub(pattern, new, work)
+    if not new:  # unit removed — tidy up the gap it left behind
+        out = re.sub(r"[ \t]+(\n|$)", r"\1", re.sub(r"[ \t]{2,}", " ", out))
+    return out
+
+
 class LabReportApp:
     def __init__(self, page: ft.Page):
         self.page = page
-        self.picked_images: list[tuple[bytes, str]] = []
         self.headers: list[str] = ["Trial", "Measurement", "Units"]
         self.rows: list[list[str]] = [["1", "", ""], ["2", "", ""], ["3", "", ""]]
         # each entry is [question, answer]
         self.analysis: list[list[str]] = [["", ""], ["", ""], ["", ""]]
         self.calc_results = []
+        # numbers confirmed one at a time for list calculations (Average)
+        self.avg_values: list[float] = []
 
         self._setup_page()
         # FilePicker is a service — it registers itself, but we must keep a
         # reference alive or it gets garbage-collected out of the registry.
+        # Used by the Save button.
         self.picker = ft.FilePicker()
 
         self._build()
@@ -106,7 +141,6 @@ class LabReportApp:
 
         body = ft.Column(
             controls=[
-                self._picture_section(),
                 self._info_section(),
                 self._written_section(),
                 self._data_section(),
@@ -134,144 +168,7 @@ class LabReportApp:
             )
         )
 
-    # -- 1. picture -------------------------------------------------------
-    def _picture_section(self):
-        self.thumbs = ft.Row(controls=[], wrap=True, spacing=8)
-        self.pic_status = ft.Column(controls=[], spacing=8)
-
-        has_key = vision.api_key_present()
-
-        self.read_btn = ft.FilledButton(
-            "Read with AI",
-            icon=ft.Icons.AUTO_AWESOME,
-            disabled=True,
-            on_click=self._read_images,
-        )
-
-        controls = [
-            ft.Row(
-                [
-                    ft.OutlinedButton(
-                        "Choose picture(s)",
-                        icon=ft.Icons.ADD_PHOTO_ALTERNATE,
-                        on_click=self._pick_images,
-                    ),
-                    self.read_btn,
-                ],
-                spacing=10,
-            ),
-            self.thumbs,
-            self.pic_status,
-        ]
-
-        if not has_key:
-            controls.insert(
-                0,
-                banner(
-                    "No ANTHROPIC_API_KEY found, so the AI part is off. Everything "
-                    "else works — just type your info in below. (See README to turn "
-                    "this on.)",
-                    "todo",
-                ),
-            )
-
-        return section(
-            "1. Start from a picture",
-            ft.Icons.PHOTO_CAMERA,
-            *controls,
-            subtitle="Optional. Snap your data table or the lab handout and let it fill the form.",
-        )
-
-    async def _pick_images(self, e):
-        files = await self.picker.pick_files(
-            dialog_title="Pick your lab photo(s)",
-            file_type=ft.FilePickerFileType.IMAGE,
-            allow_multiple=True,
-            with_data=True,
-        )
-        if not files:
-            return
-
-        self.picked_images = [(f.bytes, f.name) for f in files if f.bytes]
-        self.thumbs.controls = [
-            ft.Container(
-                content=ft.Column(
-                    [
-                        ft.Icon(ft.Icons.IMAGE, color=ACCENT),
-                        ft.Text(f.name, size=10, width=90, max_lines=2),
-                    ],
-                    spacing=4,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-                padding=8,
-                border_radius=8,
-                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            )
-            for f in files
-        ]
-        self.read_btn.disabled = not (self.picked_images and vision.api_key_present())
-        self.pic_status.controls = []
-        self.page.update()
-
-    def _read_images(self, e):
-        self.pic_status.controls = [
-            ft.Row(
-                [ft.ProgressRing(width=16, height=16), ft.Text("Reading…")], spacing=10
-            )
-        ]
-        self.page.update()
-        try:
-            data = vision.extract_from_images(self.picked_images)
-        except NotBuiltYet as nb:
-            self._show(self.pic_status, banner(f"Not built yet — {nb.step}", "todo"))
-            return
-        except Exception as ex:
-            self._show(self.pic_status, banner(f"{type(ex).__name__}: {ex}", "error"))
-            return
-
-        self._apply_extracted(data or {})
-        self._show(
-            self.pic_status, banner("Filled in from your picture. Check it!", "ok")
-        )
-
-    def _apply_extracted(self, data: dict):
-        """Drop whatever the AI found into the matching boxes."""
-        mapping = {
-            "title": self.f_title,
-            "materials": self.f_materials,
-            "safety": self.f_safety,
-        }
-        for key, control in mapping.items():
-            val = data.get(key)
-            if isinstance(val, str) and val.strip():
-                control.value = val
-
-        headers = data.get("data_headers")
-        rows = data.get("data_rows")
-        if isinstance(headers, list) and headers:
-            self.headers = [str(h) for h in headers]
-            self.rows = (
-                [[str(c) for c in r] for r in rows]
-                if isinstance(rows, list) and rows
-                else [["" for _ in self.headers]]
-            )
-            self._render_table()
-
-        questions = data.get("analysis_questions")
-        if isinstance(questions, list) and questions:
-            found = []
-            for q in questions:
-                if isinstance(q, dict):
-                    found.append([str(q.get("question", "")), str(q.get("answer", ""))])
-                elif isinstance(q, str):
-                    found.append([q, ""])
-            if found:
-                self.analysis = found
-                self._render_analysis()
-
-        self.page.update()
-
-    # -- 2. lab info ------------------------------------------------------
+    # -- 1. lab info ----------------------------------------------------
     def _info_section(self):
         self.f_title = field("Lab title", "Determining the Density of an Unknown Metal")
         self.f_name = field("Your name")
@@ -286,7 +183,7 @@ class LabReportApp:
             )
 
         return section(
-            "2. Lab info",
+            "1. Lab info",
             ft.Icons.BADGE,
             self.f_title,
             pair(self.f_name, self.f_course),
@@ -294,7 +191,7 @@ class LabReportApp:
             self.f_partners,
         )
 
-    # -- 3. materials + safety --------------------------------------------
+    # -- 2. materials + safety ------------------------------------------
     def _written_section(self):
         self.f_materials = field(
             "Material list — one per line",
@@ -310,19 +207,19 @@ class LabReportApp:
         )
 
         return section(
-            "3. Materials & safety",
+            "2. Materials & safety",
             ft.Icons.EDIT_NOTE,
             self.f_materials,
             self.f_safety,
             subtitle="One item per line — they become bullet points in the report.",
         )
 
-    # -- 4. data table ----------------------------------------------------
+    # -- 3. data table --------------------------------------------------
     def _data_section(self):
         self.table_col = ft.Column(controls=[], spacing=6)
         self._render_table()
         return section(
-            "4. Data table",
+            "3. Data table",
             ft.Icons.TABLE_CHART,
             self.table_col,
             ft.Row(
@@ -414,31 +311,50 @@ class LabReportApp:
         self._render_table()
         self.page.update()
 
-    # -- 5. calculations --------------------------------------------------
+    # -- 4. calculations ------------------------------------------------
     def _calc_section(self):
         self.calc_inputs = ft.Column(controls=[], spacing=8)
         self.calc_list = ft.Column(controls=[], spacing=8)
         self.calc_status = ft.Column(controls=[], spacing=8)
         self._input_fields: list[ft.TextField] = []
 
+        first_key = next(iter(chem.CALCULATIONS))
         self.calc_dd = ft.Dropdown(
             label="Calculation",
             options=[
                 ft.DropdownOption(key=k, text=v[0])
                 for k, v in chem.CALCULATIONS.items()
             ],
-            value=next(iter(chem.CALCULATIONS)),
+            value=first_key,
             on_select=self._calc_changed,
             width=280,
         )
+        self.f_unit = ft.TextField(
+            label="Unit",
+            value=UNIT_HINTS.get(first_key, ""),
+            hint_text="g/mL",
+            dense=True,
+            border_radius=8,
+            width=120,
+        )
+        self.f_value = ft.TextField(
+            label="Value",
+            hint_text="12.4",
+            dense=True,
+            border_radius=8,
+            width=180,
+            on_submit=self._add_value,
+        )
+        self.value_chips = ft.Row(controls=[], wrap=True, spacing=8)
         self._render_calc_inputs()
 
         return section(
-            "5. Calculations",
+            "4. Calculations",
             ft.Icons.CALCULATE,
             ft.Row(
                 [
                     self.calc_dd,
+                    self.f_unit,
                     ft.FilledButton(
                         "Calculate & add",
                         icon=ft.Icons.ADD_TASK,
@@ -446,17 +362,43 @@ class LabReportApp:
                     ),
                 ],
                 spacing=12,
+                wrap=True,
                 vertical_alignment=ft.CrossAxisAlignment.START,
             ),
             self.calc_inputs,
             self.calc_status,
             ft.Divider(),
             self.calc_list,
-            subtitle="Each one you add shows up in the report with the work written out.",
+            subtitle=(
+                "Each one you add shows up in the report with the work written "
+                "out. The Unit box prefills — type over it to use your own. "
+                "Average takes one number at a time — Add each, then Calculate."
+            ),
         )
 
     def _render_calc_inputs(self):
         key = self.calc_dd.value
+
+        if key in LIST_INPUTS:
+            # One number at a time — type it, confirm it, it joins the list.
+            self._input_fields = []
+            self._render_value_chips()
+            self.calc_inputs.controls = [
+                ft.Row(
+                    [
+                        self.f_value,
+                        ft.OutlinedButton(
+                            "Add value",
+                            icon=ft.Icons.ADD,
+                            on_click=self._add_value,
+                        ),
+                    ],
+                    spacing=12,
+                ),
+                self.value_chips,
+            ]
+            return
+
         labels = chem.CALCULATIONS[key][1]
         self._input_fields = [
             ft.TextField(label=lbl, dense=True, border_radius=8, width=240)
@@ -464,8 +406,83 @@ class LabReportApp:
         ]
         self.calc_inputs.controls = [ft.Row(self._input_fields, spacing=12, wrap=True)]
 
+    def _render_value_chips(self):
+        """Show the confirmed numbers, each with an X to take it back off."""
+
+        def drop(i: int):
+            def handler(e):
+                self.avg_values.pop(i)
+                self._render_value_chips()
+                self.page.update()
+
+            return handler
+
+        chips = [
+            ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Text(f"{v:g}", size=13, weight=ft.FontWeight.BOLD),
+                        ft.IconButton(
+                            icon=ft.Icons.CLOSE,
+                            icon_size=14,
+                            tooltip="Remove",
+                            on_click=drop(i),
+                        ),
+                    ],
+                    spacing=0,
+                    tight=True,
+                ),
+                padding=ft.Padding(10, 0, 0, 0),
+                border_radius=20,
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            )
+            for i, v in enumerate(self.avg_values)
+        ]
+
+        if chips:
+            count = len(self.avg_values)
+            chips.append(
+                ft.Container(
+                    content=ft.Text(
+                        f"{count} value{'' if count == 1 else 's'}",
+                        size=12,
+                        color=ft.Colors.ON_SURFACE_VARIANT,
+                    ),
+                    padding=ft.Padding(6, 10, 6, 0),
+                )
+            )
+        else:
+            chips = [
+                ft.Text(
+                    "No values yet — type one and hit Add (or press Enter).",
+                    size=12,
+                    color=ft.Colors.ON_SURFACE_VARIANT,
+                )
+            ]
+
+        self.value_chips.controls = chips
+
+    def _add_value(self, e):
+        """Confirm one number into the list."""
+        raw = (self.f_value.value or "").strip()
+        if not raw:
+            return
+        try:
+            self.avg_values.append(float(raw))
+        except ValueError:
+            self._show(self.calc_status, banner(f"{raw!r} isn't a number.", "error"))
+            return
+
+        self.f_value.value = ""
+        self.calc_status.controls = []
+        self._render_value_chips()
+        self.page.update()
+
     def _calc_changed(self, e):
+        self.avg_values = []
+        self.f_value.value = ""
         self._render_calc_inputs()
+        self.f_unit.value = UNIT_HINTS.get(self.calc_dd.value, "")
         self.calc_status.controls = []
         self.page.update()
 
@@ -473,11 +490,22 @@ class LabReportApp:
         key = self.calc_dd.value
         name, labels, fn = chem.CALCULATIONS[key]
 
-        try:
-            args = [float(f.value.strip()) for f in self._input_fields]
-        except (ValueError, AttributeError):
-            self._show(self.calc_status, banner("Every box needs a number.", "error"))
-            return
+        if key in LIST_INPUTS:
+            if not self.avg_values:
+                self._show(
+                    self.calc_status,
+                    banner("Add at least one value first.", "error"),
+                )
+                return
+            args = [list(self.avg_values)]
+        else:
+            try:
+                args = [float(f.value.strip()) for f in self._input_fields]
+            except (ValueError, AttributeError):
+                self._show(
+                    self.calc_status, banner("Every box needs a number.", "error")
+                )
+                return
 
         try:
             result = fn(*args)
@@ -488,7 +516,27 @@ class LabReportApp:
             self._show(self.calc_status, banner(str(ex), "error"))
             return
 
+        if not isinstance(result, CalcResult):
+            self._show(
+                self.calc_status,
+                banner(
+                    f"{name} returned a {type(result).__name__}, not a CalcResult. "
+                    "Calculate into a variable, then return CalcResult(...) — "
+                    "see percent_error in chem.py.",
+                    "error",
+                ),
+            )
+            return
+
+        chosen = (self.f_unit.value or "").strip()
+        if chosen != result.unit:
+            result.work = _swap_unit(result.work, result.unit, chosen)
+            result.unit = chosen
+
         self.calc_results.append(result)
+        if key in LIST_INPUTS:
+            self.avg_values = []
+            self._render_value_chips()
         self._render_calc_list()
         self.calc_status.controls = []
         self.page.update()
@@ -535,12 +583,12 @@ class LabReportApp:
             for i, c in enumerate(self.calc_results)
         ]
 
-    # -- 6. analysis questions ---------------------------------------------
+    # -- 5. analysis questions ------------------------------------------
     def _analysis_section(self):
         self.analysis_col = ft.Column(controls=[], spacing=10)
         self._render_analysis()
         return section(
-            "6. Analysis questions",
+            "5. Analysis questions",
             ft.Icons.QUIZ,
             self.analysis_col,
             ft.OutlinedButton(
@@ -616,17 +664,23 @@ class LabReportApp:
         self._render_analysis()
         self.page.update()
 
-    # -- 7. report --------------------------------------------------------
+    # -- 6. report ------------------------------------------------------
     def _report_section(self):
         self.report_status = ft.Column(controls=[], spacing=8)
         self.preview = ft.Markdown(value="", selectable=True)
+        self.docx_btn = ft.FilledTonalButton(
+            "Save as Word",
+            icon=ft.Icons.DESCRIPTION,
+            disabled=True,
+            on_click=self._save_docx,
+        )
         self.save_btn = ft.OutlinedButton(
             "Save as .md", icon=ft.Icons.DOWNLOAD, disabled=True, on_click=self._save
         )
         self._report_text = ""
 
         return section(
-            "7. Your report",
+            "6. Your report",
             ft.Icons.DESCRIPTION,
             ft.Row(
                 [
@@ -635,9 +689,11 @@ class LabReportApp:
                         icon=ft.Icons.PLAY_ARROW,
                         on_click=self._generate,
                     ),
+                    self.docx_btn,
                     self.save_btn,
                 ],
                 spacing=10,
+                wrap=True,
             ),
             self.report_status,
             ft.Container(
@@ -688,8 +744,32 @@ class LabReportApp:
         self._report_text = text or ""
         self.preview.value = self._report_text
         self.save_btn.disabled = not self._report_text
+        self.docx_btn.disabled = not self._report_text
         self.report_status.controls = []
         self.page.update()
+
+    async def _save_docx(self, e):
+        """Build a .docx from the same form data and let the user save it."""
+        try:
+            blob = export_docx.build_docx(self._collect())
+        except export_docx.DocxNotInstalled as missing:
+            self._show(self.report_status, banner(str(missing), "todo"))
+            return
+        except Exception as ex:
+            self._show(
+                self.report_status, banner(f"{type(ex).__name__}: {ex}", "error")
+            )
+            return
+
+        title = (self.f_title.value or "").strip() or "lab report"
+        safe = "".join(c if (c.isalnum() or c in " -_") else "" for c in title).strip()
+        await self.picker.save_file(
+            dialog_title="Save your lab report",
+            file_name=f"{safe or 'lab report'}.docx",
+            src_bytes=blob,
+        )
+        self.report_status.controls = []
+        self.toast("Saved as Word.")
 
     async def _save(self, e):
         if not self._report_text:

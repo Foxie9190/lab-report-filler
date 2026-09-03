@@ -82,11 +82,13 @@ Keeps the context so you don't have to re-explain the app every time.
 
 ```
 This is a Flet (Python) web app that fills out chemistry lab reports. You
-either type parameters in, or upload a photo of a data table and the app
-fills the form via the Anthropic API.
+type your parameters in and it builds a formatted Markdown report.
+
+The report template is exactly five sections: title of lab, material list,
+safety precautions, data tables, analysis questions.
 
 HOW WE SPLIT THE WORK
-- Landon writes the backend: backend/chem.py, vision.py, report.py
+- Landon writes the backend: backend/chem.py, report.py
 - Claude writes the UI: ui/app.py, ui/theme.py
 - backend/models.py is the contract between them. Don't change its shapes
   without updating both sides.
@@ -117,10 +119,9 @@ CONVENTIONS
   should run at every stage.
 - Backend functions raise ValueError with a plain-English message for bad
   input. The UI shows it in red.
-- Never commit .env.
 
 SCHOOLWORK
-The conclusion section is what a teacher actually grades. Help draft and
+The analysis answers are what a teacher actually grades. Help draft and
 edit, but flag it if the work is drifting toward Claude writing the science
 instead of Landon.
 ```
