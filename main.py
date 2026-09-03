@@ -18,7 +18,11 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    desktop = len(sys.argv) > 1 and sys.argv[1].lower() in ("desktop", "app")
+    # Packed by `flet pack`?  PyInstaller sets sys.frozen. A packed app is
+    # always a desktop window — nobody double-clicks an app to get a
+    # browser tab. From source, `python3 main.py desktop` picks the window.
+    packed = getattr(sys, "frozen", False)
+    desktop = packed or (len(sys.argv) > 1 and sys.argv[1].lower() in ("desktop", "app"))
 
     if desktop:
         # Desktop window: let Flet grab any free port, so a stuck process

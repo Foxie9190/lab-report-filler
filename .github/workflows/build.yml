@@ -1,0 +1,71 @@
+name: Build app
+
+# Runs whenever you push a tag that starts with "v", like v1.0.0.
+# Builds a Mac .app and a Windows .exe on GitHub's own machines, zips
+# them, and attaches both to a GitHub Release with that tag.
+#
+# To ship a version:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:   # also lets you press "Run workflow" on GitHub by hand
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+          - os: windows-latest
+            label: Windows
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Pack the app
+        run: flet pack main.py --name "Lab Report Filler" --product-name "Lab Report Filler" --add-data "assets:assets" -y
+
+      # Zip it so it downloads as one file. Mac needs `ditto` to keep the
+      # .app bundle's permissions intact — a normal zip breaks it.
+      - name: Zip (macOS)
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent "dist/Lab Report Filler.app" "Lab-Report-Filler-macOS.zip"
+
+      - name: Zip (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path "dist/Lab Report Filler.exe" -DestinationPath "Lab-Report-Filler-Windows.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: Lab-Report-Filler-*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: Lab-Report-Filler-*.zip
+          generate_release_notes: true
