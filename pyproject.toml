@@ -1,0 +1,22 @@
+# Config for `flet build`. This is what makes the packaged app carry your
+# name and icon instead of Flet's.
+#
+# The version here should match VERSION in backend/updates.py and the git
+# tag you push. All three are the same number.
+
+[project]
+name = "lab_report_filler"
+version = "1.0.0"
+description = "Chemistry lab reports, done right"
+requires-python = ">=3.11"
+dependencies = [
+    "flet>=0.86,<0.87",
+    "python-docx>=1.1",
+]
+
+[tool.flet]
+product = "Lab Report Filler"
+company = "Landon Gordon"
+copyright = "Copyright (c) 2026 Landon Urquhart"
+org = "com.landongordon"
+bundle_id = "com.landongordon.labreportfiller"

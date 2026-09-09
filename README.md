@@ -9,10 +9,6 @@ touches the internet is a quick check on launch for a newer version — if
 there is one, a strip at the top offers a download link. That's all it
 does; it never installs anything on its own.
 
-![Lab info, materials and data tables](assets/Screenshot1.png)
-
-![Calculations, analysis questions and Word export](assets/Screenshot2.png)
-
 ## Install
 
 1. Download **Lab Report Filler.zip** from the
@@ -43,8 +39,8 @@ Every report follows the same five-part template:
 Calculations go in between the data and the questions. Each one prints
 the formula, the numbers plugged in, and the answer with its unit, so it
 reads like you worked it out by hand.
-![Filling in the form](assets/Screenshot1.png)
-![Filling in the form Continued](assets/Screenshot2.png)
+![Filling in the form](docs/Screenshot1.png)
+![Filling in the form Continued](docs/Screenshot2.png)
 
 
 ## Using it
@@ -198,14 +194,35 @@ Release. Apps already out in the world will see the new tag and show
 the update strip. The version and the tag must match — the app compares
 them to decide whether to show it.
 
-### Building the .app by hand
+### Building by hand
 
 ```bash
 pip install pyinstaller
-flet pack main.py --name "Lab Report Filler"
+flet pack main.py --name "Lab Report Filler" --icon assets/icon.icns --add-data "assets:assets" -y
 ```
 
-The bundle lands in `dist/`. Zip it and attach it to a GitHub release.
+The bundle lands in `dist/`. On Windows use `assets/icon.ico` and a
+semicolon in `--add-data "assets;assets"`. You can only build for the
+platform you're on — GitHub Actions covers the other one.
+
+Icons live in `assets/`: `icon.png` is the master, `icon.icns` is for
+macOS and `icon.ico` for Windows. Regenerate the last two from the PNG
+if you change it.
+
+**A nicer build, once the tooling is set up.** `flet build macos`
+compiles a real native app — your own name and icon in the Dock instead
+of Flet's, one process, faster startup. It needs Xcode 15+, CocoaPods
+1.16+ and Rosetta 2 on Apple Silicon:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -runFirstLaunch
+sudo softwareupdate --install-rosetta --agree-to-license
+brew install cocoapods
+```
+
+`pyproject.toml` already has the `[tool.flet]` settings it reads. Switch
+the workflow over once a local `flet build macos` succeeds.
 
 **Port already in use** when running from source in browser mode means
 an old copy is still running: `kill $(lsof -ti :8550)`. Desktop mode

@@ -8,3 +8,4 @@ build/
 storage/
 dist/
 *.spec
+build.log

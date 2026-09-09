@@ -4,9 +4,13 @@ name: Build app
 # Builds a Mac .app and a Windows .exe on GitHub's own machines, zips
 # them, and attaches both to a GitHub Release with that tag.
 #
+# Uses `flet pack` (PyInstaller). `flet build` makes a nicer native app
+# without the Flet branding in the Dock, but it needs Xcode + CocoaPods
+# set up locally, which isn't sorted yet. Switch back when it is.
+#
 # To ship a version:
-#   git tag v1.0.0
-#   git push origin v1.0.0
+#   1. bump VERSION in backend/updates.py and version in pyproject.toml
+#   2. git tag v1.1.0 && git push origin v1.1.0
 
 on:
   push:
@@ -14,19 +18,10 @@ on:
   workflow_dispatch:   # also lets you press "Run workflow" on GitHub by hand
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            label: macOS
-          - os: windows-latest
-            label: Windows
-    runs-on: ${{ matrix.os }}
-
+  macos:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -36,35 +31,56 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Pack the app
-        run: flet pack main.py --name "Lab Report Filler" --product-name "Lab Report Filler" --add-data "assets:assets" -y
+      - name: Pack
+        run: flet pack main.py --name "Lab Report Filler" --icon assets/icon.icns --product-name "Lab Report Filler" --add-data "assets:assets" -y
 
-      # Zip it so it downloads as one file. Mac needs `ditto` to keep the
-      # .app bundle's permissions intact — a normal zip breaks it.
-      - name: Zip (macOS)
-        if: runner.os == 'macOS'
+      # ditto, not zip — a plain zip breaks the .app bundle's permissions
+      - name: Zip
         run: ditto -c -k --keepParent "dist/Lab Report Filler.app" "Lab-Report-Filler-macOS.zip"
 
-      - name: Zip (Windows)
-        if: runner.os == 'Windows'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS
+          path: Lab-Report-Filler-macOS.zip
+
+  # Windows builds are off for now — change `if: false` to `if: true`
+  # when you want them back.
+  windows:
+    if: false
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Pack
+        run: flet pack main.py --name "Lab Report Filler" --icon assets/icon.ico --product-name "Lab Report Filler" --add-data "assets;assets" -y
+
+      - name: Zip
         run: Compress-Archive -Path "dist/Lab Report Filler.exe" -DestinationPath "Lab-Report-Filler-Windows.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.label }}
-          path: Lab-Report-Filler-*.zip
+          name: Windows
+          path: Lab-Report-Filler-Windows.zip
 
   release:
-    needs: build
+    needs: [macos, windows]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    # always() so a skipped Windows job doesn't skip the release with it.
+    if: always() && startsWith(github.ref, 'refs/tags/v') && needs.macos.result == 'success'
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
-
       - uses: softprops/action-gh-release@v2
         with:
           files: Lab-Report-Filler-*.zip
