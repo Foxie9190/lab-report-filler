@@ -5,8 +5,8 @@ This file is the CONTRACT between the UI (ui/) and the backend (backend/).
 Both sides agree on these objects, so you can rewrite the backend however you
 want as long as your functions take and return these.
 
-Claude wrote this file. You shouldn't need to change it, but read it first —
-everything else makes more sense once you know these objects.
+Read this one first — everything else makes more sense once you know
+these objects.
 
 The report template these follow:
     Title of lab -> LabInfo.title

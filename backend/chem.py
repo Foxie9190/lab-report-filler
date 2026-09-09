@@ -1,14 +1,12 @@
 """
-=============================================================================
-  YOUR FILE #1 — the chemistry math
-=============================================================================
+The chemistry math.
 
 Every function here takes plain numbers and returns a CalcResult (see
-models.py). The UI already knows how to display a CalcResult, so as soon as
-you fill one of these in, it just works in the app.
+models.py). The UI knows how to display a CalcResult, so filling one of
+these in makes it work in the app straight away.
 
-I built `percent_error` all the way through as a worked example.
-Copy its shape for the rest.
+`percent_error` is written out in full as a worked example — copy its
+shape for the rest.
 
 Rules of the road:
   - Return a CalcResult, don't print anything.
@@ -16,8 +14,6 @@ Rules of the road:
     the report look like you did it by hand.
   - Raise ValueError with a clear message on bad input (like dividing by 0).
     The UI catches it and shows the message in red.
-
-See BACKEND_GUIDE.md → Step 1.
 """
 
 from __future__ import annotations
@@ -26,7 +22,7 @@ from .models import CalcResult, NotBuiltYet
 
 
 # ---------------------------------------------------------------------------
-# DONE — worked example. Read this one carefully, then copy the pattern.
+# Worked example — the shape every calculation below follows.
 # ---------------------------------------------------------------------------
 def percent_error(experimental: float, accepted: float) -> CalcResult:
     """How far off your measurement was from the real/accepted value.
@@ -53,8 +49,8 @@ def percent_error(experimental: float, accepted: float) -> CalcResult:
 
 
 # ---------------------------------------------------------------------------
-# YOUR TURN — everything below is a stub.
-# Delete the `raise NotBuiltYet(...)` line and write the real thing.
+# Still stubs — delete the `raise NotBuiltYet(...)` line and write the
+# real thing. The UI shows an amber notice for anything unfinished.
 # ---------------------------------------------------------------------------
 
 

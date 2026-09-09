@@ -1,4 +1,4 @@
-"""Colors and small styling helpers. Claude's file — tweak freely."""
+"""Colors and small styling helpers."""
 
 import flet as ft
 

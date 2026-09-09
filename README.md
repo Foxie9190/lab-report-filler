@@ -11,11 +11,16 @@ does; it never installs anything on its own.
 
 ## Install
 
-1. Download **Lab Report Filler.zip** from the
-   [Releases page](https://github.com/Foxie9190/lab-report-filler/releases).
-2. Double-click the zip. You get **Lab Report Filler.app**.
-3. Drag it into your **Applications** folder.
-4. **The first time only:** right-click the app and choose **Open**, then
+1. Go to the
+   [Releases page](https://github.com/Foxie9190/lab-report-filler/releases)
+   and scroll down to **Assets**.
+2. Download **Lab-Report-Filler-macOS.zip** — *not* "Source code (zip)".
+   Those two are added automatically by GitHub and contain the code, not
+   the app.
+3. Double-click the zip. You get **Lab Report Filler.app** (possibly
+   inside a folder of the same name).
+4. Drag it into your **Applications** folder.
+5. **The first time only:** right-click the app and choose **Open**, then
    click **Open** again in the box that pops up.
 
 That last step matters. The app isn't signed with an Apple developer

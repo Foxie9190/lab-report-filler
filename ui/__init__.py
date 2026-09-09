@@ -1,4 +1,4 @@
-"""UI package — Claude's side of the project."""
+"""UI package — every screen, button and box."""
 
 from .app import LabReportApp
 

@@ -1,16 +1,13 @@
 """
-The whole user interface. Claude's file.
+The whole user interface — every screen, button and box.
 
-You shouldn't need to edit this to get the app working — it already calls
-every backend function you're going to write. But it's plain Flet, so poke
-at it once things run.
-
-How it talks to your backend:
+It never reaches into the backend's logic. It only calls:
     backend.chem.CALCULATIONS        -> builds the calculation dropdown
     backend.report.build_report(...) -> the Generate button
+    backend.export_docx.build_docx() -> the Save as Word button
 
-If one of your functions still raises NotBuiltYet, the app shows an amber
-"this part is yours" strip instead of crashing.
+A backend function that still raises NotBuiltYet shows an amber
+"not built yet" strip instead of crashing the app.
 """
 
 from __future__ import annotations

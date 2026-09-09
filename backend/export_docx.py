@@ -1,10 +1,10 @@
 """
-Word (.docx) export. Claude's file — the plumbing, not the science.
+Word (.docx) export.
 
 You give it the same LabReport that build_report() gets, it hands back the
 bytes of a .docx file. The UI writes those bytes to wherever you pick.
 
-Why this doesn't just convert your Markdown: Markdown tables are pipes and
+Why this doesn't just convert the Markdown report: Markdown tables are pipes and
 dashes. Word wants a real table object, real bullet lists, real headings.
 Building straight from the LabReport gets you a document that looks like a
 document instead of a text file with symbols in it.

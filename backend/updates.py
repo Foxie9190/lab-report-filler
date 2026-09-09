@@ -1,5 +1,5 @@
 """
-Update check. Claude's file — plumbing, not science.
+Update check.
 
 On launch the app asks GitHub for the newest release and, if it's newer
 than the version running, shows a strip with a Download button. That's
