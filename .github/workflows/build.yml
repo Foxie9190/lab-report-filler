@@ -43,10 +43,7 @@ jobs:
           name: macOS
           path: Lab-Report-Filler-macOS.zip
 
-  # Windows builds are off for now — change `if: false` to `if: true`
-  # when you want them back.
   windows:
-    if: false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +71,9 @@ jobs:
     needs: [macos, windows]
     runs-on: ubuntu-latest
     # always() so a skipped Windows job doesn't skip the release with it.
-    if: always() && startsWith(github.ref, 'refs/tags/v') && needs.macos.result == 'success'
+    if: always() && startsWith(github.ref, 'refs/tags/v')
+      && needs.macos.result == 'success'
+      && needs.windows.result != 'failure'
     permissions:
       contents: write
     steps:

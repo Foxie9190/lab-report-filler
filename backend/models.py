@@ -87,7 +87,6 @@ class DataTable:
 class CalcResult:
     """One finished calculation, ready to print in the report.
 
-    Your chem.py functions return these.
 
     name:    "Percent Error"
     formula: "|experimental - accepted| / accepted x 100"

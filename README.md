@@ -1,8 +1,8 @@
 # Lab Report Filler
 
-A Mac app for writing chemistry lab reports. Fill in the form, let it do
-the math and show the work, and get a finished Word document you can
-turn in.
+A Mac and Windows app for writing chemistry lab reports. Fill in the
+form, let it do the math and show the work, and get a finished Word
+document you can turn in.
 
 No account. Nothing you type leaves your computer. The only time it
 touches the internet is a quick check on launch for a newer version — if
@@ -11,16 +11,21 @@ does; it never installs anything on its own.
 
 ## Install
 
-1. Go to the
-   [Releases page](https://github.com/Foxie9190/lab-report-filler/releases)
-   and scroll down to **Assets**.
-2. Download **Lab-Report-Filler-macOS.zip** — *not* "Source code (zip)".
-   Those two are added automatically by GitHub and contain the code, not
-   the app.
-3. Double-click the zip. You get **Lab Report Filler.app** (possibly
+Go to the
+[Releases page](https://github.com/Foxie9190/lab-report-filler/releases)
+and scroll down to **Assets**. Download the zip for your computer — *not*
+"Source code (zip)" or "Source code (tar.gz)", which GitHub adds
+automatically and contain the code, not the app.
+
+Either way, the very first launch takes about twenty seconds while the app
+unpacks itself. It looks frozen. It isn't. After that it opens quickly.
+
+### macOS — `Lab-Report-Filler-macOS.zip`
+
+1. Double-click the zip. You get **Lab Report Filler.app** (possibly
    inside a folder of the same name).
-4. Drag it into your **Applications** folder.
-5. **The first time only:** right-click the app and choose **Open**, then
+2. Drag it into your **Applications** folder.
+3. **The first time only:** right-click the app and choose **Open**, then
    click **Open** again in the box that pops up.
 
 That last step matters. The app isn't signed with an Apple developer
@@ -30,6 +35,17 @@ your Mac you trust it. After that, it opens normally.
 
 If your Mac still refuses, go to **System Settings → Privacy & Security**,
 scroll down, and click **Open Anyway** next to the app's name.
+
+### Windows — `Lab-Report-Filler-Windows.zip`
+
+1. Right-click the zip and choose **Extract All**. You get
+   **Lab Report Filler.exe**.
+2. Put it wherever you like — the Desktop is fine. There's no installer.
+3. Double-click it. The first time, Windows shows a blue **"Windows
+   protected your PC"** box: click **More info**, then **Run anyway**.
+
+Same reason as the Mac warning — the app isn't signed with a paid
+certificate, so SmartScreen doesn't recognise it yet.
 
 ## What it makes
 
@@ -112,8 +128,12 @@ first time. Your reports aren't stored in the app, so nothing is lost.
 
 ## Troubleshooting
 
-**"Lab Report Filler can't be opened" / "is damaged"** — see step 4 under
-Install. Right-click → Open, or *Open Anyway* in Privacy & Security.
+**"Lab Report Filler can't be opened" / "is damaged"** (Mac) — see the
+macOS steps under Install. Right-click → Open, or *Open Anyway* in
+Privacy & Security.
+
+**"Windows protected your PC"** — click **More info**, then **Run
+anyway**. Expected on an unsigned app.
 
 **Amber "not built yet" strip** — that calculation isn't finished yet.
 The rest of the app works.
