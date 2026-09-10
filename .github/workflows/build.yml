@@ -100,7 +100,7 @@ jobs:
   release:
     needs: [macos, windows, linux]
     runs-on: ubuntu-latest
-    # always() so a skipped Windows job doesn't skip the release with it.
+    # always() so a skipped build job doesn't skip the release with it.
     if: always() && startsWith(github.ref, 'refs/tags/v')
       && needs.macos.result == 'success'
       && needs.windows.result != 'failure'
@@ -113,5 +113,7 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: Lab-Report-Filler-*.zip
+          # Trailing * on purpose: macOS/Windows ship .zip, Linux ships
+          # .tar.gz. A '*.zip' glob silently drops the Linux archive.
+          files: Lab-Report-Filler-*
           generate_release_notes: true

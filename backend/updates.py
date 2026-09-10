@@ -18,7 +18,7 @@ import json
 import urllib.request
 from dataclasses import dataclass
 
-VERSION = "1.0.1"
+VERSION = "1.0.3"
 REPO = "Foxie9190/lab-report-filler"
 
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
