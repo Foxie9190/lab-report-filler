@@ -1,6 +1,6 @@
 # Lab Report Filler
 
-A Mac and Windows app for writing chemistry lab reports. Fill in the
+A Mac, Windows and Linux app for writing chemistry lab reports. Fill in the
 form, let it do the math and show the work, and get a finished Word
 document you can turn in.
 
@@ -46,6 +46,28 @@ scroll down, and click **Open Anyway** next to the app's name.
 
 Same reason as the Mac warning — the app isn't signed with a paid
 certificate, so SmartScreen doesn't recognise it yet.
+
+### Linux — `Lab-Report-Filler-Linux.tar.gz`
+
+```bash
+tar -xzf Lab-Report-Filler-Linux.tar.gz
+./lab-report-filler
+```
+
+x86-64 only — it will not run on an ARM machine like a Raspberry Pi.
+
+The window itself is drawn by a component that links against your system
+GTK and media libraries. On Debian or Ubuntu, if it won't start:
+
+```bash
+sudo apt install libgtk-3-0 libmpv2 libsecret-1-0 \
+  libgstreamer1.0-0 gstreamer1.0-plugins-base
+```
+
+Other distributions want the equivalent GTK 3, mpv and GStreamer
+packages. And the first launch needs an internet connection — it
+downloads the window component for your distribution and caches it under
+`~/.flet/`. Every launch after that works offline.
 
 ## What it makes
 
@@ -134,6 +156,14 @@ Privacy & Security.
 
 **"Windows protected your PC"** — click **More info**, then **Run
 anyway**. Expected on an unsigned app.
+
+**Nothing happens on Linux** — you're probably missing GTK or mpv. See
+the Linux install steps. Running it from a terminal shows the real error
+rather than failing silently.
+
+**`Permission denied` on Linux** — the executable bit was lost, which
+happens if the tarball was unpacked by a tool that drops permissions.
+Fix with `chmod +x lab-report-filler`.
 
 **Amber "not built yet" strip** — that calculation isn't finished yet.
 The rest of the app works.
@@ -226,9 +256,16 @@ pip install pyinstaller
 flet pack main.py --name "Lab Report Filler" --icon assets/icon.icns --add-data "assets:assets" -y
 ```
 
-The bundle lands in `dist/`. On Windows use `assets/icon.ico` and a
-semicolon in `--add-data "assets;assets"`. You can only build for the
-platform you're on — GitHub Actions covers the other one.
+The bundle lands in `dist/`. You can only build for the platform you're
+on — GitHub Actions covers the other two. Per-platform differences:
+
+| Platform | `--icon` | `--add-data` separator |
+|---|---|---|
+| macOS | `assets/icon.icns` | `:` colon |
+| Windows | `assets/icon.ico` | `;` semicolon |
+| Linux | not supported, omit it | `:` colon |
+
+Getting the separator wrong builds an app that runs but has no assets.
 
 Icons live in `assets/`: `icon.png` is the master, `icon.icns` is for
 macOS and `icon.ico` for Windows. Regenerate the last two from the PNG

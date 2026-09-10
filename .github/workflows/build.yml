@@ -67,13 +67,44 @@ jobs:
           name: Windows
           path: Lab-Report-Filler-Windows.zip
 
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      # No --icon here: PyInstaller only honours it on Windows and macOS
+      # ("Ignoring icon; supported only on Windows and macOS!"). Linux
+      # desktops read the icon from a .desktop file instead.
+      # Hyphenated name because a Linux binary gets run from a terminal.
+      - name: Pack
+        run: flet pack main.py --name "lab-report-filler" --product-name "Lab Report Filler" --add-data "assets:assets" -y
+
+      # tar, not zip — tar keeps the executable bit, which the app needs
+      # to launch. A zip usually loses it.
+      - name: Tar
+        run: tar -czf Lab-Report-Filler-Linux.tar.gz -C dist lab-report-filler
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux
+          path: Lab-Report-Filler-Linux.tar.gz
+
   release:
-    needs: [macos, windows]
+    needs: [macos, windows, linux]
     runs-on: ubuntu-latest
     # always() so a skipped Windows job doesn't skip the release with it.
     if: always() && startsWith(github.ref, 'refs/tags/v')
       && needs.macos.result == 'success'
       && needs.windows.result != 'failure'
+      && needs.linux.result != 'failure'
     permissions:
       contents: write
     steps:
