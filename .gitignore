@@ -9,3 +9,4 @@ storage/
 dist/
 *.spec
 build.log
+Claude outputs/

@@ -18,6 +18,7 @@ The report template these follow:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 
@@ -83,6 +84,43 @@ class DataTable:
         return [r[i] for r in self.rows if i < len(r)]
 
 
+# Superscript digits, so an exponent can sit inline in ordinary text.
+_SUPERSCRIPT = str.maketrans("-0123456789", "\u207b\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079")
+
+# Matches Python's e-notation inside a longer string, e.g. "6.022e+23".
+_E_NOTATION = re.compile(r"(-?\d+\.?\d*)[eE]([+-]?\d+)")
+
+
+def to_scientific(value: float, digits: int = 4) -> str:
+    """6.022e+23 -> '6.022 x 10^23', written with real superscript digits.
+
+    Falls back to a plain number when the exponent is 0, so 8.0 stays "8"
+    instead of becoming "8 x 10^0".
+    """
+    if value == 0:
+        return "0"
+    mantissa, _, exponent = f"{value:.{max(digits - 1, 0)}e}".partition("e")
+    mantissa = mantissa.rstrip("0").rstrip(".") or "0"
+    power = int(exponent)
+    if power == 0:
+        return mantissa
+    return f"{mantissa} \u00d7 10{str(power).translate(_SUPERSCRIPT)}"
+
+
+def sci_text(text: str) -> str:
+    """Rewrite every e-notation number inside a string, so a shown-work
+    line reads the same way as the answer above it."""
+
+    def swap(m: "re.Match[str]") -> str:
+        power = int(m.group(2))
+        mantissa = m.group(1).rstrip("0").rstrip(".") or "0"
+        if power == 0:
+            return mantissa
+        return f"{mantissa} \u00d7 10{str(power).translate(_SUPERSCRIPT)}"
+
+    return _E_NOTATION.sub(swap, text)
+
+
 @dataclass
 class CalcResult:
     """One finished calculation, ready to print in the report.
@@ -94,6 +132,9 @@ class CalcResult:
     unit:    "%"
     work:    the shown work, as a string, e.g.
              "|8.7 - 8.9| / 8.9 x 100 = 2.25%"
+    sci:     print the answer in scientific notation. The UI sets this
+             from its Scientific notation checkbox; nothing in chem.py
+             needs to care.
     """
 
     name: str
@@ -101,9 +142,11 @@ class CalcResult:
     value: float
     unit: str = ""
     work: str = ""
+    sci: bool = False
 
     def pretty(self) -> str:
-        return f"{self.value:.4g}{(' ' + self.unit) if self.unit else ''}"
+        number = to_scientific(self.value) if self.sci else f"{self.value:.4g}"
+        return f"{number}{(' ' + self.unit) if self.unit else ''}"
 
 
 @dataclass

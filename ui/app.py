@@ -20,6 +20,7 @@ from backend import chem, export_docx, report as report_mod, updates
 from backend.models import (
     AnalysisQuestion,
     CalcResult,
+    sci_text,
     DataTable,
     LabContent,
     LabInfo,
@@ -457,6 +458,7 @@ class LabReportApp:
             border_radius=8,
             width=120,
         )
+        self.opt_sci = ft.Checkbox(label="Scientific notation", value=False)
         self.f_value = ft.TextField(
             label="Value",
             hint_text="12.4",
@@ -475,6 +477,9 @@ class LabReportApp:
                 [
                     self.calc_dd,
                     self.f_unit,
+                    ft.Container(
+                        content=self.opt_sci, padding=ft.Padding(0, 8, 0, 0)
+                    ),
                     ft.FilledButton(
                         "Calculate & add",
                         icon=ft.Icons.ADD_TASK,
@@ -492,6 +497,7 @@ class LabReportApp:
             subtitle=(
                 "Each one you add shows up in the report with the work written "
                 "out. The Unit box prefills — type over it to use your own. "
+                "Tick Scientific notation for answers like 6.022 \u00d7 10\u00b2\u00b3. "
                 "Average takes one number at a time — Add each, then Calculate."
             ),
         )
@@ -652,6 +658,13 @@ class LabReportApp:
         if chosen != result.unit:
             result.work = _swap_unit(result.work, result.unit, chosen)
             result.unit = chosen
+
+        # Scientific notation applies at add-time, like the unit override.
+        # The work string gets rewritten too, so the shown work reads the
+        # same way as the answer above it.
+        if self.opt_sci.value:
+            result.sci = True
+            result.work = sci_text(result.work)
 
         self.calc_results.append(result)
         if key in LIST_INPUTS:

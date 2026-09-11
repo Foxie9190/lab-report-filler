@@ -104,6 +104,11 @@ gets its own name and prints separately in the report.
 *Calculate & add*. It shows up below with the work written out. The
 **Unit** box fills in on its own, but you can type over it.
 
+Tick **Scientific notation** before calculating and that answer prints
+as `6.022 × 10²³` instead of `6.022e+23` — the shown work gets rewritten
+to match. It's per calculation, so one report can have Avogadro's number
+in scientific notation and a density as plain `8 g/mL`.
+
 Built-in calculations: percent error, percent yield, density, moles from
 grams, molarity, and average. *Average* works a little differently: you
 add one number at a time, each one locks in as a chip, and then you
