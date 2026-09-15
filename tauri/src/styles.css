@@ -1,0 +1,168 @@
+/*
+ * Colours ported from ui/theme.py. Flet gave us Material palette names
+ * (TEAL_700, AMBER_100); those are just hex values, so here they are as
+ * CSS custom properties — one place to change them, same as before.
+ */
+:root {
+  --accent: #00796b;        /* TEAL_700 */
+  --accent-dark: #00695c;
+  --accent-ink: #ffffff;
+
+  --todo-bg: #fff8e1;       /* AMBER_100 */
+  --todo-fg: #ff6f00;       /* AMBER_900 */
+  --error-bg: #ffcdd2;      /* RED_100 */
+  --error-fg: #b71c1c;      /* RED_900 */
+  --ok-bg: #c8e6c9;         /* GREEN_100 */
+  --ok-fg: #1b5e20;         /* GREEN_900 */
+
+  --bg: #f6f7f8;
+  --card: #ffffff;
+  --ink: #1a1a1a;
+  --muted: #6b6b6b;
+  --line: #dcdfe1;
+
+  --max-width: 920px;       /* theme.MAX_WIDTH */
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* -- app header ---------------------------------------------------------- */
+.appbar {
+  background: var(--accent);
+  color: var(--accent-ink);
+  padding: 14px 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.appbar h1 { font-size: 18px; font-weight: 600; margin: 0; }
+.version { font-size: 12px; opacity: 0.8; }
+
+/* -- tabs ---------------------------------------------------------------- */
+.tabbar {
+  background: var(--accent);
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  flex: 0 0 auto;
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.tab:hover { color: #fff; }
+.tab[aria-selected="true"] {
+  color: #fff;
+  border-bottom-color: #fff;
+}
+
+/* Each panel scrolls itself. This is the CSS answer to the Flet problem
+   where a page-level scroll fought the tab view. */
+main { flex: 1 1 auto; min-height: 0; position: relative; }
+.tabpanel { position: absolute; inset: 0; overflow-y: auto; }
+.tabpanel[hidden] { display: none; }
+
+.wrap {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 18px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* -- cards (theme.section) ---------------------------------------------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+.card > h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 2px;
+  color: var(--ink);
+}
+.card > .subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.card > h2 + .fields { margin-top: 12px; }
+
+/* -- fields (theme.field) ----------------------------------------------- */
+.fields { display: flex; flex-direction: column; gap: 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+label.f { display: flex; flex-direction: column; gap: 4px; }
+label.f > span { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+input[type="text"], input[type="date"], textarea, select {
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  width: 100%;
+}
+textarea { resize: vertical; min-height: 82px; }
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+/* -- banners (theme.banner) --------------------------------------------- */
+.banner {
+  border-radius: var(--radius);
+  padding: 12px;
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.banner.todo  { background: var(--todo-bg);  color: var(--todo-fg); }
+.banner.error { background: var(--error-bg); color: var(--error-fg); }
+.banner.ok    { background: var(--ok-bg);    color: var(--ok-fg); }
+.banner strong { font-weight: 700; }
+
+/* -- buttons ------------------------------------------------------------- */
+button.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+button.primary:hover { background: var(--accent-dark); }
+
+/* One place where responsive matters: the window can be dragged narrow. */
+@media (max-width: 620px) {
+  .grid2 { grid-template-columns: 1fr; }
+}

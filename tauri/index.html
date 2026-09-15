@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lab Report Filler</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="appbar">
+      <h1>Lab Report Filler</h1>
+      <span class="version" id="version"></span>
+    </header>
+
+    <nav class="tabbar" role="tablist">
+      <button class="tab" role="tab" data-tab="report" aria-selected="true">Lab report</button>
+      <button class="tab" role="tab" data-tab="trig" aria-selected="false">Trigonometry</button>
+    </nav>
+
+    <main>
+      <section class="tabpanel" id="panel-report" role="tabpanel">
+        <div class="wrap" id="report-sections"></div>
+      </section>
+
+      <section class="tabpanel" id="panel-trig" role="tabpanel" hidden>
+        <div class="wrap" id="trig-sections"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
