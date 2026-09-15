@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .models import DataTable, LabReport, NotBuiltYet
+from .models import DataTable, LabReport
 
 
 def markdown_table(data: DataTable) -> str:
@@ -40,25 +40,20 @@ def build_report(report: LabReport) -> str:
     Calcs = report.calculations
     table = []
 
-    table.append(f"{Info.title or 'LabReport'}")
+    # The title is the one `#` in the report; every section below is `##`.
+    table.append(f"# {Info.title or 'Lab Report'}")
     table.append(
         f"**Name:** {Info.student_name} \n **Class:** {Info.course} \n **Date:** {Info.date} \n **Lab Partner/Partners:** {Info.partners}"
     )
 
+    # Sections go in template order: materials, safety, data, calculations,
+    # analysis questions. They print in whatever order they're appended, so
+    # this order is the one that matters.
     if Content.materials:
-        table.append("# Material List\n\n" + bullet_list(Content.materials))
+        table.append("## Material List\n\n" + bullet_list(Content.materials))
 
-    if AnalysisQuestions:
-        Questions = []
-        for i, Q in enumerate(AnalysisQuestions, 1):
-            Questions.append(f"**{i}. {Q.question}**\n\n{Q.answer}")
-        table.append("## Analysis Questions\n\n" + "\n\n".join(Questions))
-
-    if Calcs:
-        calculatons = []
-        for cal in Calcs:
-            calculatons.append(f"**{cal.name} = {cal.pretty()}**\n\n {cal.work}")
-        table.append("## Calculations\n\n" + "\n\n".join(calculatons))
+    if Content.safety:
+        table.append("## Safety Precautions\n\n" + bullet_list(Content.safety))
 
     # One report can have several tables. Each prints under its own name.
     data_chunks = []
@@ -68,5 +63,17 @@ def build_report(report: LabReport) -> str:
             data_chunks.append(f"**{dt.title or f'Table {i}'}**\n\n{md}")
     if data_chunks:
         table.append("## Data\n\n" + "\n\n".join(data_chunks))
+
+    if Calcs:
+        calculatons = []
+        for cal in Calcs:
+            calculatons.append(f"**{cal.name} = {cal.pretty()}**\n\n {cal.work}")
+        table.append("## Calculations\n\n" + "\n\n".join(calculatons))
+
+    if AnalysisQuestions:
+        Questions = []
+        for i, Q in enumerate(AnalysisQuestions, 1):
+            Questions.append(f"**{i}. {Q.question}**\n\n{Q.answer}")
+        table.append("## Analysis Questions\n\n" + "\n\n".join(Questions))
 
     return "\n\n".join(table)

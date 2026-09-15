@@ -18,7 +18,7 @@ Rules of the road:
 
 from __future__ import annotations
 
-from .models import CalcResult, NotBuiltYet
+from .models import CalcResult
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ def percent_error(experimental: float, accepted: float) -> CalcResult:
         name="Percent Error",
         formula="|experimental - accepted| / |accepted| x 100",
         value=value,
-        unit="g/mL",
+        unit="%",
         work=(
             f"|{experimental} - {accepted}| / |{accepted}| x 100\n"
             f"= {difference:.4g} / {abs(accepted):.4g} x 100\n"
@@ -49,20 +49,20 @@ def percent_error(experimental: float, accepted: float) -> CalcResult:
 
 
 # ---------------------------------------------------------------------------
-# Still stubs — delete the `raise NotBuiltYet(...)` line and write the
-# real thing. The UI shows an amber notice for anything unfinished.
+# The rest of the calculations. Guard the bad input first, do the maths,
+# then wrap it in a CalcResult — same shape as percent_error above.
 # ---------------------------------------------------------------------------
 
 
 def percent_yield(actual_g: float, theoretical_g: float) -> CalcResult:
     if theoretical_g != 0:
-        value = round((actual_g / theoretical_g) * 100)
+        value = (actual_g / theoretical_g) * 100
         return CalcResult(
             name="Percent Yield",
-            formula="(Theoretical g ÷ actual g) x 100",
+            formula="(Actual g ÷ Thoeretical g) x 100",
             value=value,
-            unit="g/mL",
-            work=f"{theoretical_g} ÷ {actual_g} * 100 = {value:.4g}",
+            unit="%",
+            work=f"{actual_g} ÷ {theoretical_g} * 100 = {value:.4g}",
         )
     else:
         raise ValueError("You cannot Divide By Zero")
@@ -83,27 +83,37 @@ def density(mass_g: float, volume_ml: float) -> CalcResult:
 
 
 def moles_from_grams(grams: float, molar_mass: float) -> CalcResult:
+    """moles = grams / molar mass.  Unit is "mol"."""
+    if molar_mass <= 0:
+        raise ValueError("Molar mass has to be more than 0.")
 
-    # Guard against molar_mass <= 0 (a molar mass can never be zero or negative).
-    raise NotBuiltYet("Step 1c — moles_from_grams in backend/chem.py")
+    value = grams / molar_mass
+
+    return CalcResult(
+        name="Moles from Grams",
+        formula="grams / molar mass",
+        value=value,
+        unit="mol",
+        work=f"{grams} g / {molar_mass} g/mol = {value:.4g} mol",
+    )
 
 
 def molarity(moles: float, liters: float) -> CalcResult:
-    """M = moles of solute / liters of solution.  Unit is "M".
+    if liters <= 0:
+        raise ValueError("Liters of solution has to be more than 0.")
 
-    Heads up: labs usually give you mL. Decide whether you convert here or
-    make the UI pass liters. (The UI currently passes whatever's in the box,
-    and the field is labeled "liters", so you're fine.)
-    """
-    raise NotBuiltYet("Step 1d — molarity in backend/chem.py")
+    value = moles / liters
+
+    return CalcResult(
+        name="Molarity",
+        formula="moles of solute / liters of solution",
+        value=value,
+        unit="M",
+        work=f"{moles} mol / {liters} L = {value:.4g} M",
+    )
 
 
 def average(values: list[float], label: str = "Average", unit: str = "") -> CalcResult:
-    """Mean of a list of numbers — handy for averaging trials.
-
-    `label` and `unit` come from the caller, because this one averages
-    anything — masses, temperatures, volumes. Only the caller knows which.
-    """
     if not values:
         raise ValueError("Nothing to average — add at least one value.")
 

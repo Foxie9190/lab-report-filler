@@ -8,8 +8,8 @@ grabs the new zip the same way they got the first one.
 
 Bump VERSION every time you tag a release, and use the same number:
 
-    VERSION = "1.1.0"      <- here
-    git tag v1.1.0         <- on the command line
+    VERSION = "1.4.0"      <- here (this line is just an example)
+    git tag v1.4.0         <- on the command line
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import json
 import urllib.request
 from dataclasses import dataclass
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 REPO = "Foxie9190/lab-report-filler"
 
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"

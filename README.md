@@ -88,6 +88,9 @@ reads like you worked it out by hand.
 
 ## Using it
 
+The app has two tabs. **Lab report** is the form below.
+**Trigonometry** is a scratch calculator — see the next section.
+
 Work top to bottom. Nothing is required — any section you leave blank is
 simply left out of the report.
 
@@ -120,6 +123,71 @@ calculate. That way you can check every value before it goes in.
 **Your report** — hit *Generate report* to see a preview, then
 **Save as Word** to get a `.docx`. There's also *Save as .md* if you want
 plain text.
+
+## Trigonometry tab
+
+A scratch calculator that has nothing to do with your report — work
+something out without it ending up in what you turn in.
+
+It does trigonometry, but also logs, roots and powers.
+
+Type a whole expression and press Enter:
+
+```
+sin(30) + log(100)          ->  2.5
+18.0 / 18.02 * 6.022e23     ->  6.015e+23   (6.015 × 10²³)
+sqrt(144) / 2^2             ->  3
+```
+
+**Degrees** is on by default, so `sin(30)` is `0.5`. Switch it off for
+radians.
+
+Available: `sin cos tan asin acos atan atan2 sinh cosh tanh`, `log ln
+log2 exp`, `sqrt cbrt pow hypot`, `abs round floor ceil trunc fmod gcd
+factorial degrees radians`. Constants `pi`, `e`, `tau`. Powers as `2^10`
+or `2**10`.
+
+**You don't have to type the function names.** Every one of them is a
+button under the answer, grouped into trigonometry, logs and powers, and
+numbers and brackets. Tap `sin`, type `30`, hit Solve.
+
+**Closing brackets are optional.** `sin(30` and `2*(3+4` both work —
+there's only one place a missing bracket can go, so the app puts it
+there. Same on the keypad.
+
+**Variables.** `x = 5` stores it, then `x^2 + 1` uses it — and one
+variable can be built from another (`y = x * 3`). `ans` is always your
+last answer, so `ans / 2` carries on from where you were. Everything
+stored shows as a chip under the calculator; click one to type its name.
+
+A name you've already used isn't blocked, but it won't change quietly
+either — reusing one says **Replaced x: 5 → 7** and outlines that chip,
+so you can see it happened. Built-in names like `pi` and `sin` are
+refused outright.
+
+**Degrees.** There's a `°` you can type: `sin(30°)` is `0.5` whichever
+way the Degrees switch is set, so one expression can mix the two.
+
+**Roots and fractions.** `√81` works without brackets — so does
+`√sin(30)`, where it takes the whole call. Fractions are just division:
+`3/4`, `2/3 - 1/6`, `(1/2)^2`.
+
+You can also type `×` `÷` `π` and superscripts like `10²³`, so an
+answer copied out of a report pastes straight back in.
+
+Answers over 100,000 or under 0.001 also show in scientific notation.
+The last twelve calculations are kept below — click any line to put it
+back in the box.
+
+### The quick keypad
+
+On this tab there's a round calculator button in the top-left corner.
+Click it and it grows into a keypad — digits, `+ − × ÷`, brackets, `C`
+and backspace, plus `√`, `x²`, `^` and `a/b` for fractions. Click the X
+to shrink it back.
+
+After pressing `=`, typing a digit starts a new sum and pressing an
+operator carries on from the answer, the way a real calculator does.
 
 ## Word export
 
