@@ -6,9 +6,12 @@
  * only ever talk through the types in backend/models.ts.
  */
 
-import { makeLabReport } from "./backend/models";
+import { makeLabReport, pretty } from "./backend/models";
 import type { LabReport } from "./backend/models";
 import { area, banner, card, el, field, row } from "./ui";
+import { setUpTheme } from "./theme";
+import { CALCULATIONS } from "./backend/chem";
+
 
 const VERSION = "0.1.0";
 
@@ -81,7 +84,57 @@ function buildReportTab(): void {
       safety.wrap,
     ),
   );
+  // Calculaton options
+  const picker = el("select")
+  for (const [key, calc] of Object.entries(CALCULATIONS)) {
+    picker.append(el("option",{ value: key }, [calc.label]));
+  }
+  const pickerWrap = el("label", {class: "f"}, [el("span", {}, ["Calculation"]), picker]);
+  // Calculation Fields
+  const calcFields = el("div", { class: "fields" });
+  let calcInputs: HTMLInputElement[] = [];
+  function renderCalcFields(key: string, ): void {
+    const calc = CALCULATIONS[key];
+    calcFields.replaceChildren();
+    calcInputs = [];
+    for (const label of calc.fields) {
+      const f = field(label, "0");
+      calcFields.append(f.wrap);
+      calcInputs.push(f.input);
+    }
+  }
+  picker.addEventListener("change", () => renderCalcFields(picker.value))
+  renderCalcFields(picker.value);
 
+  const calcResult = el("div", {class: "fields"});
+  const calcButton = el("button", {class: "primary"}, ["Calculate & Add"])
+  calcButton.addEventListener("click", () => {
+    const calc = CALCULATIONS[picker.value];
+    calcResult.replaceChildren();
+
+    if (calc.listInput) {
+      calcResult.append(banner("Average Is to be Worked on another time", "todo"));
+      return;
+    }
+    if (calcInputs.some((input) => input.value.trim() ===  "")) {
+      calcResult.append(banner("Fill in EveryBox First", "error"));
+      return;
+    }
+    const values = calcInputs.map((input) => Number(input.value));
+    if (values.some((v) => !Number.isFinite(v))) {
+      calcResult.append(banner("Those need to be numbers.", "error"));
+      return;
+    }
+
+    try {
+      const result = calc.run(...values);
+      state.calculations.push(result);
+      calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
+    } catch (e) {
+      calcResult.append(banner((e as Error).message, "error"));
+    }
+
+  })
   // -- The sections still waiting on the backend
   host.append(
     card(
@@ -92,7 +145,10 @@ function buildReportTab(): void {
     card(
       "Calculations",
       null,
-      banner("Waiting on src/backend/chem.ts — percentError is written, the other five are stubs.", "todo"),
+      pickerWrap,
+      calcFields,
+      el("div", {}, [calcButton]),
+      calcResult
     ),
     card(
       "Analysis questions",
@@ -136,6 +192,7 @@ function buildTrigTab(): void {
 function main(): void {
   const version = document.getElementById("version");
   if (version) version.textContent = `v${VERSION} — rewrite in progress`;
+  setUpTheme();
   setUpTabs();
   buildReportTab();
   buildTrigTab();

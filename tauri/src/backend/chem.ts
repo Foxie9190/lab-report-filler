@@ -17,7 +17,7 @@
  */
 
 import type { CalcResult } from "./models";
-import { NotBuiltYet } from "./models";
+import { formatSignificant } from "./models";
 
 /**
  * percentError(9.5, 10) -> 5 %
@@ -42,22 +42,66 @@ export function percentError(experimental: number, accepted: number): CalcResult
 
 /** percentYield(4, 5) -> 80 %.  Remember the × 100. */
 export function percentYield(actual: number, theoretical: number): CalcResult {
-  throw new NotBuiltYet(`Percent yield (actual=${actual}, theoretical=${theoretical})`);
+  if (theoretical === 0) {
+    throw new Error("Theoretical Can Not Be Zero")
+  };
+  const value = (actual / theoretical) * 100;
+
+  return {
+    name: "Precent Yield",
+    formula: "Actual ÷ Theorietical",
+    value: value,
+    unit: "%",
+    work: `${actual} ÷ ${theoretical} = ${formatSignificant(value, 4)}`
+  }
+
 }
 
 /** density(10, 5) -> 2 g/mL.  Guard volume, not mass. */
 export function density(mass: number, volume: number): CalcResult {
-  throw new NotBuiltYet(`Density (mass=${mass}, volume=${volume})`);
-}
+  if (volume === 0) {
+    throw new Error("Cant Have A Volume Of Zero");
+  };
+  const value = mass / volume;
+  return {
+    name: "Density",
+    formula: "Mass ÷ Volume",
+    value: value,
+    unit: "g/mL",
+    work: `${mass} ÷ ${volume} = ${formatSignificant(value, 4)}`
+  };
+};
 
 /** molesFromGrams(18, 18) -> 1 mol.  Guard molar mass. */
 export function molesFromGrams(grams: number, molarMass: number): CalcResult {
-  throw new NotBuiltYet(`Moles from grams (grams=${grams}, molarMass=${molarMass})`);
+  if (molarMass === 0) {
+    throw new Error("Cannot Divide By Zero")
+  };
+  const value = grams / molarMass;
+
+  return {
+    name: "Moles From Grames",
+    formula: "Grams ÷ Molar Mass",
+    value: value,
+    unit: 'g/mL',
+    work: `${grams} ÷ ${molarMass} = ${formatSignificant(value, 4)}`
+  };
+  // throw new NotBuiltYet(`Moles from grams (grams=${grams}, molarMass=${molarMass})`);
 }
 
 /** molarity(0.5, 2) -> 0.25 M.  Guard litres — and guard BEFORE you divide. */
 export function molarity(moles: number, liters: number): CalcResult {
-  throw new NotBuiltYet(`Molarity (moles=${moles}, liters=${liters})`);
+  if (liters === 0) {
+    throw new Error("Cannot Divide By Zero")
+  };
+  const value = moles / liters;
+  return {
+    name: "Molarity",
+    formula: "Moles ÷ Liters",
+    value: value,
+    unit: "g/mL",
+    work: `${moles} ÷ ${liters} = ${formatSignificant(value, 4)}`
+  }
 }
 
 /**
@@ -67,7 +111,23 @@ export function molarity(moles: number, liters: number): CalcResult {
  * hands you all of them at once. Guard the empty list or you divide by zero.
  */
 export function average(values: number[]): CalcResult {
-  throw new NotBuiltYet(`Average (${values.length} values)`);
+  if (values.length === 0) {
+    throw new Error("List Can Not Be Empty")
+  };
+  let number = 0
+  for (const num of values) {
+    number += num;
+  }
+  const value = number / values.length
+  const shown = values.map((v) => formatSignificant(v)).join(" + ");
+  return {
+    name: "Average",
+    formula: "All Numbers Added Up then divided my the amount of numbers",
+    value: value,
+    unit: "g/ml",
+    work: `(${shown}) / ${values.length} = ${formatSignificant(value)}`,
+  }
+
 }
 
 /**

@@ -1,36 +1,72 @@
 /*
- * Colours ported from ui/theme.py. Flet gave us Material palette names
- * (TEAL_700, AMBER_100); those are just hex values, so here they are as
- * CSS custom properties — one place to change them, same as before.
+ * Colours, as CSS custom properties — one place to change them.
+ *
+ * DARK IS THE DEFAULT. The light palette lives under
+ * :root[data-theme="light"], and theme.ts flips that attribute on <html>.
+ * Because every rule below reads a var(--…), neither palette is written
+ * twice — only the values change.
+ *
+ * Two accents on purpose:
+ *   --accent   the header and tab bar. Chrome. You look past it.
+ *   --action   buttons and focus rings. The saturated one, spent only on
+ *              things you click.
+ * Saturating the chrome instead would make the button compete with
+ * furniture for attention.
+ *
+ * Every text pair here is at or above 4.5:1 against its background, which
+ * is the readable-body-text floor. Worst pair is white on --action at
+ * 5.2:1. If you change a colour, check it before keeping it.
  */
+
 :root {
-  --accent: #00796b;        /* TEAL_700 */
-  --accent-dark: #00695c;
-  --accent-ink: #ffffff;
+  /* ---- DARK (default) ---- */
+  --accent: #0B1120;          /* header bar — darkest thing on screen */
+  --accent-ink: #E6EAF2;
+  --action: #2563EB;          /* the saturated blue */
+  --action-dark: #1D4ED8;
+  --tab-on: #7DD3FC;          /* selected tab, needs to read on near-black */
 
-  --todo-bg: #fff8e1;       /* AMBER_100 */
-  --todo-fg: #ff6f00;       /* AMBER_900 */
-  --error-bg: #ffcdd2;      /* RED_100 */
-  --error-fg: #b71c1c;      /* RED_900 */
-  --ok-bg: #c8e6c9;         /* GREEN_100 */
-  --ok-fg: #1b5e20;         /* GREEN_900 */
+  --bg: #0F172A;              /* page */
+  --card: #1B2639;            /* cards sit above the page */
+  --field: #0D1626;           /* inputs sit below the card */
+  --ink: #E6EAF2;             /* not pure white — less glare */
+  --muted: #94A3B8;
+  --line: #30405C;
 
-  --bg: #f6f7f8;
-  --card: #ffffff;
-  --ink: #1a1a1a;
-  --muted: #6b6b6b;
-  --line: #dcdfe1;
+  --todo-bg: #3B2F0B;  --todo-fg: #FCD34D;
+  --error-bg: #3B1518; --error-fg: #FCA5A5;
+  --ok-bg: #0F2A1A;    --ok-fg: #86EFAC;
 
-  --max-width: 920px;       /* theme.MAX_WIDTH */
+  --max-width: 920px;
   --radius: 8px;
+
+  color-scheme: dark;         /* scrollbars and the date picker follow */
+}
+
+:root[data-theme="light"] {
+  --accent: #0F172A;
+  --accent-ink: #FFFFFF;
+  --action: #2563EB;
+  --action-dark: #1D4ED8;
+  --tab-on: #7DD3FC;
+
+  --bg: #F4F6F9;
+  --card: #FFFFFF;
+  --field: #FFFFFF;
+  --ink: #1A1A1A;
+  --muted: #6B6B6B;
+  --line: #D9DEE7;
+
+  --todo-bg: #FEF3C7;  --todo-fg: #92400E;
+  --error-bg: #FEE2E2; --error-fg: #991B1B;
+  --ok-bg: #DCFCE7;    --ok-fg: #166534;
+
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  height: 100%;
-}
+html, body { margin: 0; height: 100%; }
 
 body {
   background: var(--bg);
@@ -51,7 +87,23 @@ body {
   flex: 0 0 auto;
 }
 .appbar h1 { font-size: 18px; font-weight: 600; margin: 0; }
-.version { font-size: 12px; opacity: 0.8; }
+.version { font-size: 12px; opacity: 0.75; }
+
+/* Pushes the theme button to the right-hand end of the header. */
+.spacer { flex: 1 1 auto; }
+
+#theme-toggle {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 12px;
+  cursor: pointer;
+  align-self: center;
+}
+#theme-toggle:hover { border-color: rgba(255, 255, 255, 0.6); }
 
 /* -- tabs ---------------------------------------------------------------- */
 .tabbar {
@@ -65,16 +117,16 @@ body {
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(230, 234, 242, 0.65);
   font: inherit;
   font-weight: 600;
   padding: 10px 16px;
   cursor: pointer;
 }
-.tab:hover { color: #fff; }
+.tab:hover { color: var(--accent-ink); }
 .tab[aria-selected="true"] {
-  color: #fff;
-  border-bottom-color: #fff;
+  color: var(--tab-on);
+  border-bottom-color: var(--tab-on);
 }
 
 /* Each panel scrolls itself. This is the CSS answer to the Flet problem
@@ -92,7 +144,7 @@ main { flex: 1 1 auto; min-height: 0; position: relative; }
   gap: 14px;
 }
 
-/* -- cards (theme.section) ---------------------------------------------- */
+/* -- cards --------------------------------------------------------------- */
 .card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -112,7 +164,7 @@ main { flex: 1 1 auto; min-height: 0; position: relative; }
 }
 .card > h2 + .fields { margin-top: 12px; }
 
-/* -- fields (theme.field) ----------------------------------------------- */
+/* -- fields -------------------------------------------------------------- */
 .fields { display: flex; flex-direction: column; gap: 12px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
@@ -122,20 +174,21 @@ label.f > span { font-size: 12px; font-weight: 600; color: var(--muted); }
 input[type="text"], input[type="date"], textarea, select {
   font: inherit;
   color: var(--ink);
-  background: #fff;
+  background: var(--field);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 8px 10px;
   width: 100%;
 }
 textarea { resize: vertical; min-height: 82px; }
+input::placeholder, textarea::placeholder { color: var(--muted); }
 input:focus, textarea:focus, select:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action);
   outline-offset: -1px;
-  border-color: var(--accent);
+  border-color: var(--action);
 }
 
-/* -- banners (theme.banner) --------------------------------------------- */
+/* -- banners ------------------------------------------------------------- */
 .banner {
   border-radius: var(--radius);
   padding: 12px;
@@ -151,8 +204,8 @@ input:focus, textarea:focus, select:focus {
 
 /* -- buttons ------------------------------------------------------------- */
 button.primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--action);
+  color: #FFFFFF;
   border: none;
   border-radius: var(--radius);
   font: inherit;
@@ -160,7 +213,7 @@ button.primary {
   padding: 9px 16px;
   cursor: pointer;
 }
-button.primary:hover { background: var(--accent-dark); }
+button.primary:hover { background: var(--action-dark); }
 
 /* One place where responsive matters: the window can be dragged narrow. */
 @media (max-width: 620px) {
