@@ -83,7 +83,7 @@ export function molesFromGrams(grams: number, molarMass: number): CalcResult {
     name: "Moles From Grames",
     formula: "Grams ÷ Molar Mass",
     value: value,
-    unit: 'g/mL',
+    unit: 'mol',
     work: `${grams} ÷ ${molarMass} = ${formatSignificant(value, 4)}`
   };
   // throw new NotBuiltYet(`Moles from grams (grams=${grams}, molarMass=${molarMass})`);
@@ -99,7 +99,7 @@ export function molarity(moles: number, liters: number): CalcResult {
     name: "Molarity",
     formula: "Moles ÷ Liters",
     value: value,
-    unit: "g/mL",
+    unit: "M",
     work: `${moles} ÷ ${liters} = ${formatSignificant(value, 4)}`
   }
 }
@@ -124,7 +124,7 @@ export function average(values: number[]): CalcResult {
     name: "Average",
     formula: "All Numbers Added Up then divided my the amount of numbers",
     value: value,
-    unit: "g/ml",
+    unit: "",
     work: `(${shown}) / ${values.length} = ${formatSignificant(value)}`,
   }
 

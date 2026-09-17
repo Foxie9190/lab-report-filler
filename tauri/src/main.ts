@@ -6,11 +6,12 @@
  * only ever talk through the types in backend/models.ts.
  */
 
-import { makeLabReport, pretty } from "./backend/models";
+import { makeLabReport, pretty, formatSignificant } from "./backend/models";
 import type { LabReport } from "./backend/models";
 import { area, banner, card, el, field, row } from "./ui";
 import { setUpTheme } from "./theme";
 import { CALCULATIONS } from "./backend/chem";
+
 
 
 const VERSION = "0.1.0";
@@ -97,14 +98,67 @@ function buildReportTab(): void {
     const calc = CALCULATIONS[key];
     calcFields.replaceChildren();
     calcInputs = [];
+    avgValues = [];
+    if (calc.listInput) {
+      buildValueFinder();
+      return;
+    }
     for (const label of calc.fields) {
       const f = field(label, "0");
       calcFields.append(f.wrap);
       calcInputs.push(f.input);
     }
   }
+
   picker.addEventListener("change", () => renderCalcFields(picker.value))
-  renderCalcFields(picker.value);
+  // Average Ui
+  let avgValues: number [] = [];
+  const avgChips = el("div", {class: "chips"});
+
+  function renderChips(): void {
+    avgChips.replaceChildren();
+    if (avgValues.length === 0) {
+      avgChips.append(el("span", { class: "chips-empty" }, ["No Value Yet"]));
+      return;
+    }
+    avgValues.forEach((value, i) => {
+      const x = el("button", {class: "chip-x", type: "button", title: "Remove"}, ["\u00d7"]);
+      x.addEventListener("click", () => {
+        avgValues.splice(i, 1)
+        renderChips()
+      })
+      avgChips.append(el("span", { class: "chip" }, [formatSignificant(value), x]));
+    });
+  }
+
+  function buildValueFinder(): void {
+    const box = field("Value", "12.4");
+    const add = el("button", {class: "primary", type: "button"}, ["Add Value"]);
+    function ConfirmValue(): void {
+      const raw = box.input.value.trim();
+      if (raw === "") return;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) {
+        calcResult.replaceChildren(banner(`"${raw}", isnt a number.`, "error"));
+        return;
+      }
+      avgValues.push(n);
+      box.input.value = "";
+      calcResult.replaceChildren();
+      renderChips();
+      box.input.focus();
+    }
+    add.addEventListener("click", ConfirmValue);
+    box.input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        ConfirmValue();
+      }
+    });
+    calcFields.append(box.wrap, el("div", {}, [add], ), avgChips);
+    renderChips();
+  }
+
 
   const calcResult = el("div", {class: "fields"});
   const calcButton = el("button", {class: "primary"}, ["Calculate & Add"])
@@ -113,7 +167,19 @@ function buildReportTab(): void {
     calcResult.replaceChildren();
 
     if (calc.listInput) {
-      calcResult.append(banner("Average Is to be Worked on another time", "todo"));
+      if (avgValues.length === 0) {
+        calcResult.append(banner("Add at least one value first.", "error"));
+        return;
+      }
+      try {
+        const result = calc.runList ? calc.runList(avgValues) : calc.run(...avgValues);
+        state.calculations.push(result);
+        calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
+        avgValues = [];
+        renderChips();
+      } catch (e) {
+        calcResult.append(banner((e as Error).message, "error"));
+      }
       return;
     }
     if (calcInputs.some((input) => input.value.trim() ===  "")) {
@@ -135,6 +201,7 @@ function buildReportTab(): void {
     }
 
   })
+  renderCalcFields(picker.value);
   // -- The sections still waiting on the backend
   host.append(
     card(
