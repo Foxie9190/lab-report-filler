@@ -160,6 +160,14 @@ function buildReportTab(): void {
   }
 
 
+  // Off by default. formatSignificant() handles ordinary numbers plainly,
+  // so this is for when you WANT 6.022 × 10²³ rather than 602200000000000000000000.
+  const sciBox = el("input", { type: "checkbox" });
+  const sciWrap = el("label", { class: "check" }, [
+    sciBox,
+    el("span", {}, ["Scientific notation"]),
+  ]);
+
   const calcResult = el("div", {class: "fields"});
   const calcButton = el("button", {class: "primary"}, ["Calculate & Add"])
   calcButton.addEventListener("click", () => {
@@ -173,6 +181,7 @@ function buildReportTab(): void {
       }
       try {
         const result = calc.runList ? calc.runList(avgValues) : calc.run(...avgValues);
+        result.sci = sciBox.checked;
         state.calculations.push(result);
         calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
         avgValues = [];
@@ -194,6 +203,7 @@ function buildReportTab(): void {
 
     try {
       const result = calc.run(...values);
+      result.sci = sciBox.checked;
       state.calculations.push(result);
       calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
     } catch (e) {
@@ -214,7 +224,7 @@ function buildReportTab(): void {
       null,
       pickerWrap,
       calcFields,
-      el("div", {}, [calcButton]),
+      el("div", { class: "actions" }, [calcButton, sciWrap]),
       calcResult
     ),
     card(

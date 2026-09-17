@@ -206,18 +206,31 @@ export function pretty(result: CalcResult): string {
 }
 
 /**
- * Python's f"{value:.4g}" — 4 significant digits, no trailing zeros.
- * TS has no %g, so this is the hand-rolled version.
+ * A readable number: `digits` significant figures, no trailing zeros, and
+ * PLAIN notation for anything a person would actually write down.
+ *
+ * This started as a copy of Python's f"{value:.4g}", but %g flips to
+ * exponent form as soon as the exponent reaches the digit count — so with
+ * 4 digits, 10000 came out as "1e+4". That's a normal number in a lab
+ * report, so the two behaviours are separated here: `digits` controls
+ * ROUNDING, and the exponent thresholds below control NOTATION.
+ *
+ * Exponent form is kept only for numbers plain notation can't show
+ * sensibly — past 10^15 you'd be printing noise digits, and below 10^-7
+ * you'd be counting zeros.
  */
 export function formatSignificant(value: number, digits = 4): string {
   if (!Number.isFinite(value)) return String(value);
   if (value === 0) return "0";
   const exponent = Math.floor(Math.log10(Math.abs(value)));
-  // %g switches to exponent form outside this range, same as Python
-  if (exponent < -5 || exponent >= digits) {
+  if (exponent >= 15 || exponent <= -7) {
     return trimMantissa(value.toExponential(digits - 1));
   }
-  return trimZeros(value.toFixed(Math.max(digits - 1 - exponent, 0)));
+  // Significant figures -> how many decimal places that works out to.
+  // Never negative: a big integer keeps all its digits rather than being
+  // rounded off to 4 and padded back with zeros.
+  const decimals = Math.max(digits - 1 - exponent, 0);
+  return trimZeros(value.toFixed(decimals));
 }
 
 function trimMantissa(text: string): string {

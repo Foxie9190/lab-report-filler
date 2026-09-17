@@ -33,6 +33,9 @@
   --muted: #94A3B8;
   --line: #30405C;
 
+  --chip: #243350;            /* value chips, lifted off the card */
+  --chip-line: #3C4E6E;
+
   --todo-bg: #3B2F0B;  --todo-fg: #FCD34D;
   --error-bg: #3B1518; --error-fg: #FCA5A5;
   --ok-bg: #0F2A1A;    --ok-fg: #86EFAC;
@@ -56,6 +59,9 @@
   --ink: #1A1A1A;
   --muted: #6B6B6B;
   --line: #D9DEE7;
+
+  --chip: #EDF1F7;
+  --chip-line: #C9D3E0;
 
   --todo-bg: #FEF3C7;  --todo-fg: #92400E;
   --error-bg: #FEE2E2; --error-fg: #991B1B;
@@ -218,4 +224,81 @@ button.primary:hover { background: var(--action-dark); }
 /* One place where responsive matters: the window can be dragged narrow. */
 @media (max-width: 620px) {
   .grid2 { grid-template-columns: 1fr; }
+}
+
+/* -- a button with a checkbox or two beside it -------------------------- */
+.actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--action);   /* tints the tick to match the buttons */
+  cursor: pointer;
+}
+.check:hover { color: var(--ink); }
+
+/* -- value chips (the Average input) ------------------------------------- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-empty { font-size: 12px; color: var(--muted); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--chip);
+  border: 1px solid var(--chip-line);
+  border-radius: 999px;
+  padding: 3px 4px 3px 12px;   /* tighter on the right, where the x sits */
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;   /* digits line up across chips */
+}
+
+/*
+ * The x is a fixed circle, not a loose text character. Three things do the
+ * work:
+ *   - equal width and height plus flex centring, so it is a real circle
+ *     with the glyph in the middle; a bare text x sits high in its line
+ *     box and looks misaligned whatever padding you give it
+ *   - a 20px box: big enough to hit, not bigger than the chip
+ *   - a transition, so the colour arrives instead of snapping
+ * Grey until hovered, then red — "remove" should speak up only when you
+ * are actually reaching for it. A row of permanently red x's reads as
+ * errors.
+ */
+.chip-x {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.chip-x:hover {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+/* Keyboard users get the same cue as mouse users. */
+.chip-x:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 1px;
 }
