@@ -1,0 +1,304 @@
+/*
+ * Colours, as CSS custom properties — one place to change them.
+ *
+ * DARK IS THE DEFAULT. The light palette lives under
+ * :root[data-theme="light"], and theme.ts flips that attribute on <html>.
+ * Because every rule below reads a var(--…), neither palette is written
+ * twice — only the values change.
+ *
+ * Two accents on purpose:
+ *   --accent   the header and tab bar. Chrome. You look past it.
+ *   --action   buttons and focus rings. The saturated one, spent only on
+ *              things you click.
+ * Saturating the chrome instead would make the button compete with
+ * furniture for attention.
+ *
+ * Every text pair here is at or above 4.5:1 against its background, which
+ * is the readable-body-text floor. Worst pair is white on --action at
+ * 5.2:1. If you change a colour, check it before keeping it.
+ */
+
+:root {
+  /* ---- DARK (default) ---- */
+  --accent: #0B1120;          /* header bar — darkest thing on screen */
+  --accent-ink: #E6EAF2;
+  --action: #2563EB;          /* the saturated blue */
+  --action-dark: #1D4ED8;
+  --tab-on: #7DD3FC;          /* selected tab, needs to read on near-black */
+
+  --bg: #0F172A;              /* page */
+  --card: #1B2639;            /* cards sit above the page */
+  --field: #0D1626;           /* inputs sit below the card */
+  --ink: #E6EAF2;             /* not pure white — less glare */
+  --muted: #94A3B8;
+  --line: #30405C;
+
+  --chip: #243350;            /* value chips, lifted off the card */
+  --chip-line: #3C4E6E;
+
+  --todo-bg: #3B2F0B;  --todo-fg: #FCD34D;
+  --error-bg: #3B1518; --error-fg: #FCA5A5;
+  --ok-bg: #0F2A1A;    --ok-fg: #86EFAC;
+
+  --max-width: 920px;
+  --radius: 8px;
+
+  color-scheme: dark;         /* scrollbars and the date picker follow */
+}
+
+:root[data-theme="light"] {
+  --accent: #0F172A;
+  --accent-ink: #FFFFFF;
+  --action: #2563EB;
+  --action-dark: #1D4ED8;
+  --tab-on: #7DD3FC;
+
+  --bg: #F4F6F9;
+  --card: #FFFFFF;
+  --field: #FFFFFF;
+  --ink: #1A1A1A;
+  --muted: #6B6B6B;
+  --line: #D9DEE7;
+
+  --chip: #EDF1F7;
+  --chip-line: #C9D3E0;
+
+  --todo-bg: #FEF3C7;  --todo-fg: #92400E;
+  --error-bg: #FEE2E2; --error-fg: #991B1B;
+  --ok-bg: #DCFCE7;    --ok-fg: #166534;
+
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* -- app header ---------------------------------------------------------- */
+.appbar {
+  background: var(--accent);
+  color: var(--accent-ink);
+  padding: 14px 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.appbar h1 { font-size: 18px; font-weight: 600; margin: 0; }
+.version { font-size: 12px; opacity: 0.75; }
+
+/* Pushes the theme button to the right-hand end of the header. */
+.spacer { flex: 1 1 auto; }
+
+#theme-toggle {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 12px;
+  cursor: pointer;
+  align-self: center;
+}
+#theme-toggle:hover { border-color: rgba(255, 255, 255, 0.6); }
+
+/* -- tabs ---------------------------------------------------------------- */
+.tabbar {
+  background: var(--accent);
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  flex: 0 0 auto;
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: rgba(230, 234, 242, 0.65);
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.tab:hover { color: var(--accent-ink); }
+.tab[aria-selected="true"] {
+  color: var(--tab-on);
+  border-bottom-color: var(--tab-on);
+}
+
+/* Each panel scrolls itself. This is the CSS answer to the Flet problem
+   where a page-level scroll fought the tab view. */
+main { flex: 1 1 auto; min-height: 0; position: relative; }
+.tabpanel { position: absolute; inset: 0; overflow-y: auto; }
+.tabpanel[hidden] { display: none; }
+
+.wrap {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 18px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* -- cards --------------------------------------------------------------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+.card > h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 2px;
+  color: var(--ink);
+}
+.card > .subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.card > h2 + .fields { margin-top: 12px; }
+
+/* -- fields -------------------------------------------------------------- */
+.fields { display: flex; flex-direction: column; gap: 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+label.f { display: flex; flex-direction: column; gap: 4px; }
+label.f > span { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+input[type="text"], input[type="date"], textarea, select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  width: 100%;
+}
+textarea { resize: vertical; min-height: 82px; }
+input::placeholder, textarea::placeholder { color: var(--muted); }
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--action);
+  outline-offset: -1px;
+  border-color: var(--action);
+}
+
+/* -- banners ------------------------------------------------------------- */
+.banner {
+  border-radius: var(--radius);
+  padding: 12px;
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.banner.todo  { background: var(--todo-bg);  color: var(--todo-fg); }
+.banner.error { background: var(--error-bg); color: var(--error-fg); }
+.banner.ok    { background: var(--ok-bg);    color: var(--ok-fg); }
+.banner strong { font-weight: 700; }
+
+/* -- buttons ------------------------------------------------------------- */
+button.primary {
+  background: var(--action);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+button.primary:hover { background: var(--action-dark); }
+
+/* One place where responsive matters: the window can be dragged narrow. */
+@media (max-width: 620px) {
+  .grid2 { grid-template-columns: 1fr; }
+}
+
+/* -- a button with a checkbox or two beside it -------------------------- */
+.actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--action);   /* tints the tick to match the buttons */
+  cursor: pointer;
+}
+.check:hover { color: var(--ink); }
+
+/* -- value chips (the Average input) ------------------------------------- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-empty { font-size: 12px; color: var(--muted); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--chip);
+  border: 1px solid var(--chip-line);
+  border-radius: 999px;
+  padding: 3px 4px 3px 12px;   /* tighter on the right, where the x sits */
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;   /* digits line up across chips */
+}
+
+/*
+ * The x is a fixed circle, not a loose text character. Three things do the
+ * work:
+ *   - equal width and height plus flex centring, so it is a real circle
+ *     with the glyph in the middle; a bare text x sits high in its line
+ *     box and looks misaligned whatever padding you give it
+ *   - a 20px box: big enough to hit, not bigger than the chip
+ *   - a transition, so the colour arrives instead of snapping
+ * Grey until hovered, then red — "remove" should speak up only when you
+ * are actually reaching for it. A row of permanently red x's reads as
+ * errors.
+ */
+.chip-x {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.chip-x:hover {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+/* Keyboard users get the same cue as mouse users. */
+.chip-x:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 1px;
+}
