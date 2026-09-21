@@ -53,6 +53,9 @@ export function markdownTable(table: DataTable): string {
 export function buildReport(report: LabReport): string {
   const parts: string[] = [];
   parts.push(`# ${report.info.title || "Lab Report"}`);
+  const who = [report.info.studentName, report.info.course, report.info.teacher, report.info.date].map((s) => s.trim()).filter((s) => s !== "");
+  if (who.length > 0) parts.push(who.join(" | "));
+  if (report.info.partners.trim()) parts.push(`Lab Partners: ${report.info.partners.trim()}`);
   if (report.content.materials.trim()) {
     parts.push("## Material List\n\n" + bulletList(report.content.materials));
   }
@@ -90,6 +93,7 @@ export function buildReport(report: LabReport): string {
     });
     parts.push("## Analysis Questions\n\n" + blocks.join("\n\n"));
   }
+
 
   return parts.join('\n\n');
 }

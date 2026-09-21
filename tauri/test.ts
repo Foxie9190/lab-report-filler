@@ -107,7 +107,7 @@ function headings(md: string): string[] {
 function fullReport(): LabReport {
   const r = makeLabReport();
   r.info.title = "Density of an Unknown Metal";
-  r.info.studentName = "Landon Gordon";
+  r.info.studentName = "Landon Urquhart";
   r.info.course = "Chemistry";
   r.content.materials = "balance\ngraduated cylinder\nmetal sample";
   r.content.safety = "goggles\nno open flame";
@@ -179,6 +179,51 @@ expectReport("a report with only materials has only that section", (() => {
   if (sections.length !== 1) return `expected 1 section, got ${JSON.stringify(sections)}`;
   return sections[0].includes("Material") ? null : `got ${JSON.stringify(sections[0])}`;
 });
+
+console.log("\nthe header under the title");
+
+function withInfo(fill: (r: LabReport) => void): LabReport {
+  const r = makeLabReport();
+  r.info.title = "Header Test";
+  fill(r);
+  return r;
+}
+
+expectReport("student name appears", withInfo((r) => { r.info.studentName = "Landon Urquhart"; }),
+  (md) => md.includes("Landon Urquhart") ? null : "name missing");
+
+expectReport("class, teacher and date appear", withInfo((r) => {
+  r.info.course = "Chemistry"; r.info.teacher = "Mr. X"; r.info.date = "2026-09-21";
+}), (md) => {
+  for (const want of ["Chemistry", "Mr. X", "2026-09-21"]) {
+    if (!md.includes(want)) return `${JSON.stringify(want)} missing`;
+  }
+  return null;
+});
+
+expectReport("the header comes right after the title", withInfo((r) => {
+  r.info.studentName = "Landon Urquhart"; r.content.materials = "beaker";
+}), (md) => {
+  const name = md.indexOf("Landon Urquhart"), mats = md.indexOf("## Material");
+  return name !== -1 && name < mats ? null : "name should sit between the title and the first section";
+});
+
+expectReport("the header is not a heading", withInfo((r) => { r.info.studentName = "Landon Urquhart"; }),
+  (md) => md.split("\n").some((l) => l.includes("Landon Urquhart") && l.startsWith("#"))
+    ? "the name line starts with # — it should be plain text" : null);
+
+expectReport("lab partners appear when filled", withInfo((r) => { r.info.partners = "Sam, Jo"; }),
+  (md) => md.includes("Sam, Jo") ? null : "partners missing");
+
+expectReport("no header line when every field is blank", withInfo(() => {}), (md) => {
+  if (md.includes("\u00b7")) return "found a stray separator dot with nothing around it";
+  if (/partners/i.test(md)) return "printed a partners line with no partners";
+  return md.trim() === "# Header Test" ? null : `expected just the title, got ${JSON.stringify(md)}`;
+});
+
+expectReport("blank fields leave no double separators", withInfo((r) => {
+  r.info.studentName = "Landon Urquhart"; r.info.date = "2026-09-21";   // class + teacher blank
+}), (md) => /\u00b7\s*\u00b7/.test(md) ? "two separators in a row — a blank field slipped in" : null);
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

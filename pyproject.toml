@@ -16,7 +16,7 @@ dependencies = [
 
 [tool.flet]
 product = "Lab Report Filler"
-company = "Landon Gordon"
+company = "Landon Urquhart"
 copyright = "Copyright (c) 2026 Landon Urquhart"
 org = "com.landongordon"
 bundle_id = "com.landongordon.labreportfiller"

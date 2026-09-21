@@ -2,7 +2,7 @@
 name = "lab-report-filler"
 version = "0.1.0"
 description = "Write up a chemistry lab report and export it to Word."
-authors = ["Landon Gordon"]
+authors = ["Landon Urquhart"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
