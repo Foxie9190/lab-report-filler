@@ -12,8 +12,10 @@
  */
 
 import * as chem from "./src/backend/chem";
+import { buildReport } from "./src/backend/report";
 import { pretty } from "./src/backend/models";
-import type { CalcResult } from "./src/backend/models";
+import type { CalcResult, LabReport } from "./src/backend/models";
+import { makeLabReport } from "./src/backend/models";
 
 let passed = 0;
 let failed = 0;
@@ -75,6 +77,108 @@ for (const r of [chem.density(12.6, 5.1), chem.molarity(1, 3)]) {
   console.log(`  ${long ? "FAIL  " : "pass  "} ${r.name.padEnd(24)} ${r.work}`);
   long ? failed++ : passed++;
 }
+
+// ---------------------------------------------------------------------------
+// report.ts
+// ---------------------------------------------------------------------------
+
+/** Expect something to be true about the built report. */
+function expectReport(label: string, report: LabReport, check: (md: string) => string | null): void {
+  try {
+    const problem = check(buildReport(report));
+    if (problem === null) {
+      console.log(`  pass   ${label}`);
+      passed++;
+    } else {
+      console.log(`  FAIL   ${label}\n           ${problem}`);
+      failed++;
+    }
+  } catch (e) {
+    console.log(`  THREW  ${label}\n           ${(e as Error).message}`);
+    failed++;
+  }
+}
+
+/** Every heading in the report, in the order it appears. */
+function headings(md: string): string[] {
+  return md.split("\n").filter((line) => /^#{1,6} /.test(line)).map((line) => line.trim());
+}
+
+function fullReport(): LabReport {
+  const r = makeLabReport();
+  r.info.title = "Density of an Unknown Metal";
+  r.info.studentName = "Landon Gordon";
+  r.info.course = "Chemistry";
+  r.content.materials = "balance\ngraduated cylinder\nmetal sample";
+  r.content.safety = "goggles\nno open flame";
+  r.tables = [{ title: "Trial data", headers: ["Trial", "Mass (g)"], rows: [["1", "12.4"], ["2", "12.6"]] }];
+  r.calculations = [chem.density(12.5, 5)];
+  r.analysis = [
+    { question: "Why did the trials differ?", answer: "Measurement error." },
+    { question: "What is the metal?", answer: "" },
+  ];
+  return r;
+}
+
+console.log("\nthe report");
+
+expectReport("the lab title is the only single-# heading", fullReport(), (md) => {
+  const ones = headings(md).filter((h) => /^# /.test(h));
+  if (ones.length !== 1) return `found ${ones.length} '#' headings: ${JSON.stringify(ones)}`;
+  if (!ones[0].includes("Density of an Unknown Metal")) return `the '#' heading is ${JSON.stringify(ones[0])}`;
+  return null;
+});
+
+expectReport("every section below it is '##'", fullReport(), (md) => {
+  const bad = headings(md).slice(1).filter((h) => !/^## /.test(h));
+  return bad.length ? `these are not '##': ${JSON.stringify(bad)}` : null;
+});
+
+expectReport("sections come in the right order", fullReport(), (md) => {
+  const want = ["Material", "Safety", "Data", "Calculation", "Analysis"];
+  const got = headings(md).slice(1);
+  let at = 0;
+  for (const word of want) {
+    const found = got.findIndex((h, i) => i >= at && h.includes(word));
+    if (found === -1) return `no section heading containing ${JSON.stringify(word)} — got ${JSON.stringify(got)}`;
+    at = found + 1;
+  }
+  return null;
+});
+
+expectReport("safety is not forgotten", fullReport(), (md) =>
+  md.includes("goggles") ? null : "the safety text is missing");
+
+expectReport("materials become bullets", fullReport(), (md) =>
+  md.includes("- balance") ? null : "expected a '- balance' bullet");
+
+expectReport("the data table is there", fullReport(), (md) =>
+  md.includes("| Trial | Mass (g) |") ? null : "expected the table header row");
+
+expectReport("the calculation's shown work is there", fullReport(), (md) =>
+  md.includes("2.5") ? null : "expected the density answer 2.5 somewhere");
+
+expectReport("both analysis questions are there", fullReport(), (md) => {
+  if (!md.includes("Why did the trials differ?")) return "first question missing";
+  if (!md.includes("What is the metal?")) return "second question missing";
+  return null;
+});
+
+expectReport("an empty report has no section headings", makeLabReport(), (md) => {
+  const sections = headings(md).filter((h) => /^## /.test(h));
+  return sections.length ? `empty sections should be left out, got ${JSON.stringify(sections)}` : null;
+});
+
+expectReport("a report with only materials has only that section", (() => {
+  const r = makeLabReport();
+  r.info.title = "Just Materials";
+  r.content.materials = "beaker";
+  return r;
+})(), (md) => {
+  const sections = headings(md).filter((h) => /^## /.test(h));
+  if (sections.length !== 1) return `expected 1 section, got ${JSON.stringify(sections)}`;
+  return sections[0].includes("Material") ? null : `got ${JSON.stringify(sections[0])}`;
+});
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

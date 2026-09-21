@@ -15,7 +15,7 @@
  */
 
 import type { DataTable, LabReport } from "./models";
-import { NotBuiltYet } from "./models";
+import { pretty } from "./models";
 
 /** Turn a multi-line string into Markdown bullets. */
 export function bulletList(text: string): string {
@@ -51,5 +51,45 @@ export function markdownTable(table: DataTable): string {
 
 /** The whole report as one Markdown string. */
 export function buildReport(report: LabReport): string {
-  throw new NotBuiltYet(`The report builder (report titled "${report.info.title}")`);
+  const parts: string[] = [];
+  parts.push(`# ${report.info.title || "Lab Report"}`);
+  if (report.content.materials.trim()) {
+    parts.push("## Material List\n\n" + bulletList(report.content.materials));
+  }
+  if (report.content.safety.trim()) {
+    parts.push("## Safety Precautions\n\n" + bulletList(report.content.safety));
+  }
+  const tableChuncks: string[] = [];
+  for (const table of report.tables) {
+    const md = markdownTable(table);
+    if (md === "") continue;
+    if (table.title.trim()) {
+      tableChuncks.push(`**${table.title}**\n\n${md}`);
+    } else {
+      tableChuncks.push(md);
+    }
+  }
+  if (tableChuncks.length > 0) {
+    parts.push("## Data\n\n" + tableChuncks.join("\n\n"));
+  }
+  const calcBlocks: string[] = [];
+  for (const calc of report.calculations) {
+    const lines = [`**${calc.name}**`, "", `- Formula: ${calc.formula}`];
+    if (calc.work) lines.push(`- Work: ${calc.work}`);
+    lines.push(`- Answer: **${pretty(calc)}**`);
+    calcBlocks.push(lines.join("\n"));
+  }
+  if (calcBlocks.length > 0) {
+    parts.push("## Calculations\n\n" + calcBlocks.join("\n\n"));
+  }
+  const asked = report.analysis.filter((qa) => qa.question.trim() || qa.answer.trim());
+  if (asked.length > 0) {
+    const blocks = asked.map((qa, i) => {
+      const answer = qa.answer.trim() || "_(not answered)_";
+      return `${i + 1}. **${qa.question.trim()}**\n\n   ${answer}`
+    });
+    parts.push("## Analysis Questions\n\n" + blocks.join("\n\n"));
+  }
+
+  return parts.join('\n\n');
 }
