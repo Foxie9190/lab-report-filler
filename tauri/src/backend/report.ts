@@ -43,7 +43,10 @@ export function markdownTable(table: DataTable): string {
   const head = `| ${table.headers.join(" | ")} |`;
   const sep = `| ${table.headers.map(() => "---").join(" | ")} |`;
   const body = table.rows.map((row) => {
-    const cells = [...row, ...Array(Math.max(table.headers.length - row.length, 0)).fill("")];
+    const cells = [
+      ...row,
+      ...Array(Math.max(table.headers.length - row.length, 0)).fill(""),
+    ];
     return `| ${cells.slice(0, table.headers.length).join(" | ")} |`;
   });
   return [head, sep, ...body].join("\n");
@@ -53,9 +56,17 @@ export function markdownTable(table: DataTable): string {
 export function buildReport(report: LabReport): string {
   const parts: string[] = [];
   parts.push(`# ${report.info.title || "Lab Report"}`);
-  const who = [report.info.studentName, report.info.course, report.info.teacher, report.info.date].map((s) => s.trim()).filter((s) => s !== "");
+  const who = [
+    report.info.studentName,
+    report.info.course,
+    report.info.teacher,
+    report.info.date,
+  ]
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
   if (who.length > 0) parts.push(who.join(" | "));
-  if (report.info.partners.trim()) parts.push(`Lab Partners: ${report.info.partners.trim()}`);
+  if (report.info.partners.trim())
+    parts.push(`Lab Partners: ${report.info.partners.trim()}`);
   if (report.content.materials.trim()) {
     parts.push("## Material List\n\n" + bulletList(report.content.materials));
   }
@@ -85,15 +96,16 @@ export function buildReport(report: LabReport): string {
   if (calcBlocks.length > 0) {
     parts.push("## Calculations\n\n" + calcBlocks.join("\n\n"));
   }
-  const asked = report.analysis.filter((qa) => qa.question.trim() || qa.answer.trim());
+  const asked = report.analysis.filter(
+    (qa) => qa.question.trim() || qa.answer.trim(),
+  );
   if (asked.length > 0) {
     const blocks = asked.map((qa, i) => {
       const answer = qa.answer.trim() || "_(not answered)_";
-      return `${i + 1}. **${qa.question.trim()}**\n\n   ${answer}`
+      return `${i + 1}. **${qa.question.trim()}**\n\n   ${answer}`;
     });
     parts.push("## Analysis Questions\n\n" + blocks.join("\n\n"));
   }
 
-
-  return parts.join('\n\n');
+  return parts.join("\n\n");
 }

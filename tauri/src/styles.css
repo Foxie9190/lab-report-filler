@@ -324,3 +324,25 @@ button.primary:hover { background: var(--action-dark); }
   overflow-y: auto;
 }
 .preview:empty { display: none; }
+
+/* -- analysis question rows ---------------------------------------------- */
+/*
+ * Each question + answer pair sits in its own lightly-bordered box, so it
+ * is obvious which answer belongs to which question when there are several.
+ * The x in the corner removes the row.
+ */
+.qa-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.qa-row .chip-x {                 /* reuse the chip x, parked top-right */
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}

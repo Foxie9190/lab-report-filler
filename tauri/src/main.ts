@@ -13,7 +13,6 @@ import { setUpTheme } from "./theme";
 import { CALCULATIONS } from "./backend/chem";
 import { buildReport } from "./backend/report";
 
-
 const VERSION = "0.1.0";
 
 /** Everything the person has typed. One object, same shape as the report. */
@@ -46,19 +45,40 @@ function buildReportTab(): void {
   if (!host) return;
 
   // -- Lab info
-  const title = field("Title of lab", "Determining the Density of an Unknown Metal");
+  const title = field(
+    "Title of lab",
+    "Determining the Density of an Unknown Metal",
+  );
   const student = field("Your name");
   const course = field("Class");
   const teacher = field("Teacher");
   const date = field("Date", "", "date");
   const partners = field("Lab partners", "comma separated");
 
-  title.input.addEventListener("input", () => (state.info.title = title.input.value));
-  student.input.addEventListener("input", () => (state.info.studentName = student.input.value));
-  course.input.addEventListener("input", () => (state.info.course = course.input.value));
-  teacher.input.addEventListener("input", () => (state.info.teacher = teacher.input.value));
-  date.input.addEventListener("input", () => (state.info.date = date.input.value));
-  partners.input.addEventListener("input", () => (state.info.partners = partners.input.value));
+  title.input.addEventListener(
+    "input",
+    () => (state.info.title = title.input.value),
+  );
+  student.input.addEventListener(
+    "input",
+    () => (state.info.studentName = student.input.value),
+  );
+  course.input.addEventListener(
+    "input",
+    () => (state.info.course = course.input.value),
+  );
+  teacher.input.addEventListener(
+    "input",
+    () => (state.info.teacher = teacher.input.value),
+  );
+  date.input.addEventListener(
+    "input",
+    () => (state.info.date = date.input.value),
+  );
+  partners.input.addEventListener(
+    "input",
+    () => (state.info.partners = partners.input.value),
+  );
 
   host.append(
     card(
@@ -74,8 +94,14 @@ function buildReportTab(): void {
   // -- Materials & safety
   const materials = area("Material list", "One material per line");
   const safety = area("Safety precautions", "One precaution per line");
-  materials.input.addEventListener("input", () => (state.content.materials = materials.input.value));
-  safety.input.addEventListener("input", () => (state.content.safety = safety.input.value));
+  materials.input.addEventListener(
+    "input",
+    () => (state.content.materials = materials.input.value),
+  );
+  safety.input.addEventListener(
+    "input",
+    () => (state.content.safety = safety.input.value),
+  );
 
   host.append(
     card(
@@ -86,15 +112,18 @@ function buildReportTab(): void {
     ),
   );
   // Calculaton options
-  const picker = el("select")
+  const picker = el("select");
   for (const [key, calc] of Object.entries(CALCULATIONS)) {
-    picker.append(el("option",{ value: key }, [calc.label]));
+    picker.append(el("option", { value: key }, [calc.label]));
   }
-  const pickerWrap = el("label", {class: "f"}, [el("span", {}, ["Calculation"]), picker]);
+  const pickerWrap = el("label", { class: "f" }, [
+    el("span", {}, ["Calculation"]),
+    picker,
+  ]);
   // Calculation Fields
   const calcFields = el("div", { class: "fields" });
   let calcInputs: HTMLInputElement[] = [];
-  function renderCalcFields(key: string, ): void {
+  function renderCalcFields(key: string): void {
     const calc = CALCULATIONS[key];
     calcFields.replaceChildren();
     calcInputs = [];
@@ -110,10 +139,10 @@ function buildReportTab(): void {
     }
   }
 
-  picker.addEventListener("change", () => renderCalcFields(picker.value))
+  picker.addEventListener("change", () => renderCalcFields(picker.value));
   // Average Ui
-  let avgValues: number [] = [];
-  const avgChips = el("div", {class: "chips"});
+  let avgValues: number[] = [];
+  const avgChips = el("div", { class: "chips" });
 
   function renderChips(): void {
     avgChips.replaceChildren();
@@ -122,18 +151,26 @@ function buildReportTab(): void {
       return;
     }
     avgValues.forEach((value, i) => {
-      const x = el("button", {class: "chip-x", type: "button", title: "Remove"}, ["\u00d7"]);
+      const x = el(
+        "button",
+        { class: "chip-x", type: "button", title: "Remove" },
+        ["\u00d7"],
+      );
       x.addEventListener("click", () => {
-        avgValues.splice(i, 1)
-        renderChips()
-      })
-      avgChips.append(el("span", { class: "chip" }, [formatSignificant(value), x]));
+        avgValues.splice(i, 1);
+        renderChips();
+      });
+      avgChips.append(
+        el("span", { class: "chip" }, [formatSignificant(value), x]),
+      );
     });
   }
 
   function buildValueFinder(): void {
     const box = field("Value", "12.4");
-    const add = el("button", {class: "primary", type: "button"}, ["Add Value"]);
+    const add = el("button", { class: "primary", type: "button" }, [
+      "Add Value",
+    ]);
     function ConfirmValue(): void {
       const raw = box.input.value.trim();
       if (raw === "") return;
@@ -155,10 +192,9 @@ function buildReportTab(): void {
         ConfirmValue();
       }
     });
-    calcFields.append(box.wrap, el("div", {}, [add], ), avgChips);
+    calcFields.append(box.wrap, el("div", {}, [add]), avgChips);
     renderChips();
   }
-
 
   // Off by default. formatSignificant() handles ordinary numbers plainly,
   // so this is for when you WANT 6.022 × 10²³ rather than 602200000000000000000000.
@@ -168,8 +204,8 @@ function buildReportTab(): void {
     el("span", {}, ["Scientific notation"]),
   ]);
 
-  const calcResult = el("div", {class: "fields"});
-  const calcButton = el("button", {class: "primary"}, ["Calculate & Add"])
+  const calcResult = el("div", { class: "fields" });
+  const calcButton = el("button", { class: "primary" }, ["Calculate & Add"]);
   calcButton.addEventListener("click", () => {
     const calc = CALCULATIONS[picker.value];
     calcResult.replaceChildren();
@@ -180,7 +216,9 @@ function buildReportTab(): void {
         return;
       }
       try {
-        const result = calc.runList ? calc.runList(avgValues) : calc.run(...avgValues);
+        const result = calc.runList
+          ? calc.runList(avgValues)
+          : calc.run(...avgValues);
         result.sci = sciBox.checked;
         state.calculations.push(result);
         calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
@@ -191,7 +229,7 @@ function buildReportTab(): void {
       }
       return;
     }
-    if (calcInputs.some((input) => input.value.trim() ===  "")) {
+    if (calcInputs.some((input) => input.value.trim() === "")) {
       calcResult.append(banner("Fill in EveryBox First", "error"));
       return;
     }
@@ -209,11 +247,36 @@ function buildReportTab(): void {
     } catch (e) {
       calcResult.append(banner((e as Error).message, "error"));
     }
-
-  })
+  });
   renderCalcFields(picker.value);
-  const reportPriview = el("pre", {class: "preview"});
-  const reportbutton = el("button", {class: "primary"}, ["Generate Report"]);
+  const qaList = el("div", { class: "fields" });
+
+  function renderQuestions(): void {
+    qaList.replaceChildren();
+    state.analysis.forEach((qa, i) => {
+      const q = field(`Question ${i + 1}`, "What was the purpose of this Lab");
+      const a = area("Answer", "Your Answer");
+      q.input.value = qa.question;
+      a.input.value = qa.answer;
+      q.input.addEventListener("input", () => (qa.question = q.input.value));
+      a.input.addEventListener("input", () => (qa.answer = a.input.value));
+      qaList.append(el("div", { class: "qa-row" }, [q.wrap, a.wrap]));
+    });
+  }
+
+  const addQuestion = el("button", { class: "primary", type: "button" }, [
+    "Add Question",
+  ]);
+  addQuestion.addEventListener("click", () => {
+    state.analysis.push({ question: "", answer: "" });
+    renderQuestions();
+  });
+
+  state.analysis.push({ question: "", answer: "" });
+  renderQuestions();
+
+  const reportPriview = el("pre", { class: "preview" });
+  const reportbutton = el("button", { class: "primary" }, ["Generate Report"]);
   reportbutton.addEventListener("click", () => {
     reportPriview.textContent = buildReport(state);
   });
@@ -222,7 +285,10 @@ function buildReportTab(): void {
     card(
       "Data tables",
       null,
-      banner("Data tables are next on the UI list — coming in the next pass.", "todo"),
+      banner(
+        "Data tables are next on the UI list — coming in the next pass.",
+        "todo",
+      ),
     ),
     card(
       "Calculations",
@@ -230,17 +296,18 @@ function buildReportTab(): void {
       pickerWrap,
       calcFields,
       el("div", { class: "actions" }, [calcButton, sciWrap]),
-      calcResult
+      calcResult,
     ),
     card(
       "Analysis questions",
-      null,
-      banner("Question and answer rows are next on the UI list.", "todo"),
+      "Copy Each Question from the lab, then answer it",
+      qaList,
+      el("div", { class: "actions" }, [addQuestion]),
     ),
     card(
       "Your report",
       "Generate a preview, then save it as Word.",
-      el("div", { class: "actions"}, [reportbutton]),
+      el("div", { class: "actions" }, [reportbutton]),
       reportPriview,
     ),
   );

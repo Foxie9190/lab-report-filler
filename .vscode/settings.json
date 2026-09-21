@@ -16,5 +16,6 @@
   "[python]": {
     "editor.rulers": [88],
     "editor.tabSize": 4
-  }
+  },
+  "editor.fontSize": 15
 }
