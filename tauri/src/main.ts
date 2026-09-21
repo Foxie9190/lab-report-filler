@@ -11,7 +11,7 @@ import type { LabReport } from "./backend/models";
 import { area, banner, card, el, field, row } from "./ui";
 import { setUpTheme } from "./theme";
 import { CALCULATIONS } from "./backend/chem";
-
+import { buildReport } from "./backend/report";
 
 
 const VERSION = "0.1.0";
@@ -212,6 +212,11 @@ function buildReportTab(): void {
 
   })
   renderCalcFields(picker.value);
+  const reportPriview = el("pre", {class: "preview"});
+  const reportbutton = el("button", {class: "primary"}, ["Generate Report"]);
+  reportbutton.addEventListener("click", () => {
+    reportPriview.textContent = buildReport(state);
+  });
   // -- The sections still waiting on the backend
   host.append(
     card(
@@ -235,7 +240,8 @@ function buildReportTab(): void {
     card(
       "Your report",
       "Generate a preview, then save it as Word.",
-      banner("Waiting on src/backend/report.ts and src/backend/exportDocx.ts.", "todo"),
+      el("div", { class: "actions"}, [reportbutton]),
+      reportPriview,
     ),
   );
 }

@@ -302,3 +302,25 @@ button.primary:hover { background: var(--action-dark); }
   outline: 2px solid var(--action);
   outline-offset: 1px;
 }
+
+/* -- the report preview -------------------------------------------------- */
+/*
+ * A <pre> keeps the Markdown exactly as buildReport wrote it — line breaks,
+ * the table pipes, the indented answers. pre-wrap lets long lines wrap
+ * instead of forcing a sideways scrollbar. Hidden while empty, so the card
+ * doesn't show a blank box before you've generated anything.
+ */
+.preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 13px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 0;
+  max-height: 480px;
+  overflow-y: auto;
+}
+.preview:empty { display: none; }
