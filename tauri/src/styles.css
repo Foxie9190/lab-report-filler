@@ -654,3 +654,51 @@ button.ghost:focus-visible { outline: 2px solid var(--action); outline-offset: 2
   button.primary:hover, button.ghost:hover,
   button.primary:active, button.ghost:active { transform: none; }
 }
+
+/* While the Word file is being built, the Save button greys out. */
+button.primary:disabled { opacity: 0.6; cursor: progress; transform: none; box-shadow: none; }
+
+/* -- Word theme: custom colour + preview ---------------------------------- */
+.custom-color { display: flex; flex-direction: column; gap: 10px; }
+.custom-color[hidden] { display: none; }
+.custom-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.swatch,
+.swatch-any {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.6, 0.5, 1), box-shadow 0.2s ease;
+}
+.swatch { background: var(--dot); }
+.swatch:hover,
+.swatch-any:hover { transform: scale(1.15); }
+.swatch:active,
+.swatch-any:active { transform: scale(0.9); }
+.swatch[aria-checked="true"] { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--ink); }
+.swatch:focus-visible,
+.swatch-any:focus-visible { outline: 2px solid var(--action); outline-offset: 3px; }
+
+/* The "any colour" button: a rainbow circle. The browser's own colour
+   swatch inside it is hidden so only the rainbow shows. */
+.swatch-any {
+  -webkit-appearance: none;
+  appearance: none;
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+}
+.swatch-any::-webkit-color-swatch-wrapper { padding: 0; }
+.swatch-any::-webkit-color-swatch { border: none; opacity: 0; }
+.swatch-any::-moz-color-swatch { border: none; opacity: 0; }
+
+/* Four chips showing the real colours the document will use. */
+.doc-preview { display: flex; flex-wrap: wrap; gap: 8px; }
+.doc-chip {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 700;
+}

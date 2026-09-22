@@ -19,6 +19,9 @@ import { CALCULATIONS } from "./backend/chem";
 import type { Calculation } from "./backend/chem";
 import type { CalcResult } from "./backend/models";
 import { buildReport } from "./backend/report";
+import { buildDocx, CUSTOM, customTheme, THEMES, themeNames } from "./backend/exportDocx";
+import type { DocxOptions } from "./backend/exportDocx";
+import { fileNameFor, saveDocx } from "./saveFile";
 
 const VERSION = "0.1.0";
 
@@ -447,6 +450,129 @@ function buildReportTab(): void {
   reportbutton.addEventListener("click", () => {
     reportPriview.textContent = buildReport(state);
   });
+
+  // -- Word export ----------------------------------------------------------
+  // Theme dropdown, built from themeNames() so a new theme in exportDocx.ts
+  // shows up here by itself.
+  const docTheme = el("select");
+  for (const name of themeNames()) docTheme.append(el("option", { value: name }, [name]));
+
+  // -- custom colour picker (only shown when the theme is "Custom") --------
+  // Remember the last theme and colour between launches. Storage can fail
+  // (private mode etc.), so every access is wrapped.
+  const remembered = (key: string): string | null => {
+    try { return localStorage.getItem(key); } catch { return null; }
+  };
+  const remember = (key: string, value: string): void => {
+    try { localStorage.setItem(key, value); } catch { /* not fatal */ }
+  };
+
+  let customColor = remembered("labfiller.docColor") ?? "E91E63";
+  const savedTheme = remembered("labfiller.docTheme");
+  // Set BEFORE enhanceSelect below, so the custom button shows the saved name.
+  if (savedTheme && themeNames().includes(savedTheme)) docTheme.value = savedTheme;
+
+  const docThemeWrap = el("label", { class: "f" }, [el("span", {}, ["Word theme"]), enhanceSelect(docTheme)]);
+
+  const SWATCHES = [
+    "E53935", "E91E63", "8E24AA", "5E35B1", "3949AB", "1E88E5",
+    "00ACC1", "00897B", "43A047", "C0CA33", "FB8C00", "6D4C41",
+  ];
+  const swatchRow = el("div", { class: "swatches", role: "radiogroup", "aria-label": "Pick a colour" });
+  for (const hex of SWATCHES) {
+    const b = el("button", { class: "swatch", type: "button", role: "radio", title: `#${hex}`, "aria-label": `#${hex}` });
+    b.style.setProperty("--dot", `#${hex}`);
+    b.dataset.hex = hex;
+    b.addEventListener("click", () => setColor(hex));
+    swatchRow.append(b);
+  }
+  // "Any colour": the system colour window, for anything not in the row.
+  const anyColor = el("input", { type: "color", class: "swatch-any", title: "Any colour", "aria-label": "Any colour" });
+  anyColor.addEventListener("input", () => setColor(anyColor.value));
+  swatchRow.append(anyColor);
+
+  const hexBox = field("Hex code", "#E91E63");
+  hexBox.input.maxLength = 7;
+  hexBox.input.addEventListener("input", () => {
+    const v = hexBox.input.value.replace("#", "").trim();
+    if (/^[0-9a-fA-F]{6}$/.test(v)) setColor(v, false); // only once it's a full code
+  });
+
+  const customPanel = el("div", { class: "custom-color" }, [
+    el("span", { class: "custom-label" }, ["Pick a colour"]),
+    swatchRow,
+    hexBox.wrap,
+  ]);
+
+  // The preview: the actual colours the document will use.
+  const preview = el("div", { class: "doc-preview" });
+  function renderPreview(): void {
+    const t = docTheme.value === CUSTOM ? customTheme(customColor) : (THEMES[docTheme.value] ?? THEMES.Teal);
+    const chip = (label: string, bg: string, fg: string) => {
+      const c = el("span", { class: "doc-chip" }, [label]);
+      c.style.background = `#${bg}`;
+      c.style.color = `#${fg}`;
+      return c;
+    };
+    preview.replaceChildren(
+      chip("Heading", "FFFFFF", t.accent),
+      chip("Table header", t.dark, "FFFFFF"),
+      chip("Striped row", t.light, t.ink),
+      chip("Calc box", t.box, t.ink),
+    );
+  }
+
+  function setColor(hex: string, updateBox = true): void {
+    customColor = hex.replace("#", "").toUpperCase();
+    remember("labfiller.docColor", customColor);
+    if (updateBox) hexBox.input.value = `#${customColor}`;
+    anyColor.value = `#${customColor.toLowerCase()}`;
+    swatchRow.querySelectorAll<HTMLButtonElement>(".swatch").forEach((b) => {
+      b.setAttribute("aria-checked", String(b.dataset.hex === customColor));
+    });
+    renderPreview();
+  }
+
+  function showCustom(): void {
+    customPanel.hidden = docTheme.value !== CUSTOM;
+    remember("labfiller.docTheme", docTheme.value);
+    renderPreview();
+  }
+  docTheme.addEventListener("change", showCustom);
+  setColor(customColor);
+  showCustom();
+
+  // A labelled checkbox, ticked to start with.
+  function option(text: string): { box: HTMLInputElement; wrap: HTMLElement } {
+    const box = el("input", { type: "checkbox" });
+    box.checked = true;
+    return { box, wrap: el("label", { class: "check" }, [box, el("span", {}, [text])]) };
+  }
+  const showFormulas = option("Show formulas");
+  const stripedRows = option("Striped table rows");
+  const markUnanswered = option("Mark unanswered questions");
+
+  const saveStatus = el("div", { class: "fields" });
+  const saveButton = el("button", { class: "primary", type: "button" }, ["Save as Word"]);
+  saveButton.addEventListener("click", async () => {
+    const options: DocxOptions = {
+      theme: docTheme.value,
+      customColor,
+      showFormulas: showFormulas.box.checked,
+      stripedRows: stripedRows.box.checked,
+      markUnanswered: markUnanswered.box.checked,
+    };
+    saveButton.disabled = true; // stops a double-click saving twice
+    try {
+      const bytes = await buildDocx(state, options);
+      const where = await saveDocx(bytes, fileNameFor(state.info.title));
+      saveStatus.replaceChildren(where ? banner(`Saved: ${where}`, "ok") : "");
+    } catch (err) {
+      saveStatus.replaceChildren(banner(`Couldn't save the Word file: ${String(err)}`, "error"));
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
   // -- The sections still waiting on the backend
   host.append(
     card(
@@ -474,6 +600,12 @@ function buildReportTab(): void {
       "Generate a preview, then save it as Word.",
       el("div", { class: "actions" }, [reportbutton]),
       reportPriview,
+      docThemeWrap,
+      customPanel,
+      preview,
+      el("div", { class: "actions" }, [showFormulas.wrap, stripedRows.wrap, markUnanswered.wrap]),
+      el("div", { class: "actions" }, [saveButton]),
+      saveStatus,
     ),
   );
 }
