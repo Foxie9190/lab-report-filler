@@ -142,9 +142,21 @@ export function average(values: number[]): CalcResult {
  * possible shapes because `average` takes a list while the rest take two
  * numbers, and `listInput: true` is how the UI knows which is which.
  */
+/**
+ * One unit the answer can be shown in. `factor` converts FROM the unit the
+ * function returns (always the first in the list) TO this one — so for
+ * density, g/mL is 1 and kg/m³ is 1000, because 1 g/mL = 1000 kg/m³.
+ */
+export interface Unit {
+  label: string;
+  factor: number;
+}
+
 export interface Calculation {
   label: string;
   fields: string[];
+  /** First entry is the unit the function itself returns. */
+  units: Unit[];
   listInput?: boolean;
   run: (...args: number[]) => CalcResult;
   runList?: (values: number[]) => CalcResult;
@@ -154,31 +166,57 @@ export const CALCULATIONS: Record<string, Calculation> = {
   percentError: {
     label: "Percent Error",
     fields: ["Experimental value", "Accepted value"],
+    units: [{ label: "%", factor: 1 }],
     run: (a, b) => percentError(a, b),
   },
   percentYield: {
     label: "Percent Yield",
     fields: ["Actual yield (g)", "Theoretical yield (g)"],
+    units: [{ label: "%", factor: 1 }],
     run: (a, b) => percentYield(a, b),
   },
   density: {
     label: "Density",
     fields: ["Mass (g)", "Volume (mL)"],
+    units: [
+      { label: "g/mL", factor: 1 },
+      { label: "g/cm\u00b3", factor: 1 },
+      { label: "kg/L", factor: 1 },
+      { label: "kg/m\u00b3", factor: 1000 },
+    ],
     run: (a, b) => density(a, b),
   },
   molesFromGrams: {
     label: "Moles from Grams",
     fields: ["Mass (g)", "Molar mass (g/mol)"],
+    units: [
+      { label: "mol", factor: 1 },
+      { label: "mmol", factor: 1000 },
+    ],
     run: (a, b) => molesFromGrams(a, b),
   },
   molarity: {
     label: "Molarity",
     fields: ["Moles of solute", "Liters of solution"],
+    units: [
+      { label: "M", factor: 1 },
+      { label: "mol/L", factor: 1 },
+      { label: "mM", factor: 1000 },
+    ],
     run: (a, b) => molarity(a, b),
   },
   average: {
     label: "Average",
     fields: ["Value"],
+    units: [
+      { label: "", factor: 1 },
+      { label: "g", factor: 1 },
+      { label: "mL", factor: 1 },
+      { label: "L", factor: 1 },
+      { label: "cm", factor: 1 },
+      { label: "s", factor: 1 },
+      { label: "\u00b0C", factor: 1 },
+    ],
     listInput: true,
     run: (...values) => average(values),
     runList: (values) => average(values),

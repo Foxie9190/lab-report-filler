@@ -13,9 +13,11 @@ import {
   formatSignificant,
 } from "./backend/models";
 import type { LabReport } from "./backend/models";
-import { area, banner, card, el, field, row } from "./ui";
+import { animateIn, animateOut, area, banner, card, el, enhanceSelect, field, row } from "./ui";
 import { setUpTheme } from "./theme";
 import { CALCULATIONS } from "./backend/chem";
+import type { Calculation } from "./backend/chem";
+import type { CalcResult } from "./backend/models";
 import { buildReport } from "./backend/report";
 
 const VERSION = "0.1.0";
@@ -123,7 +125,7 @@ function buildReportTab(): void {
   }
   const pickerWrap = el("label", { class: "f" }, [
     el("span", {}, ["Calculation"]),
-    picker,
+    enhanceSelect(picker),
   ]);
   // Calculation Fields
   const calcFields = el("div", { class: "fields" });
@@ -144,7 +146,40 @@ function buildReportTab(): void {
     }
   }
 
-  picker.addEventListener("change", () => renderCalcFields(picker.value));
+  // The unit dropdown. Its options come from the chosen calculation's
+  // `units` list in chem.ts, so it's rebuilt whenever the calculation changes.
+  const unitPicker = el("select");
+  const unitWrap = el("label", { class: "f" }, [el("span", {}, ["Unit"]), enhanceSelect(unitPicker)]);
+
+  function renderUnits(key: string): void {
+    unitPicker.replaceChildren();
+    for (const u of CALCULATIONS[key].units) {
+      unitPicker.append(el("option", { value: u.label }, [u.label || "(no unit)"]));
+    }
+    unitPicker.disabled = CALCULATIONS[key].units.length < 2;
+  }
+
+  /**
+   * Convert a finished result into the unit picked in the dropdown.
+   * When the number actually changes (factor isn't 1), the conversion is
+   * added to the shown work, so the report still shows how you got there.
+   */
+  function applyUnit(result: CalcResult, calc: Calculation): void {
+    const chosen = calc.units.find((u) => u.label === unitPicker.value);
+    if (!chosen || chosen.label === result.unit) return;
+    if (chosen.factor !== 1) {
+      const converted = result.value * chosen.factor;
+      const base = calc.units[0].label;
+      result.work = `${result.work ?? ""} ${base} = ${formatSignificant(converted)} ${chosen.label}`;
+      result.value = converted;
+    }
+    result.unit = chosen.label;
+  }
+
+  picker.addEventListener("change", () => {
+    renderCalcFields(picker.value);
+    renderUnits(picker.value);
+  });
   // Average Ui
   let avgValues: number[] = [];
   const avgChips = el("div", { class: "chips" });
@@ -161,13 +196,14 @@ function buildReportTab(): void {
         { class: "chip-x", type: "button", title: "Remove" },
         ["\u00d7"],
       );
+      const chip = el("span", { class: "chip" }, [formatSignificant(value), x]);
       x.addEventListener("click", () => {
-        avgValues.splice(i, 1);
-        renderChips();
+        animateOut(chip, () => {
+          avgValues.splice(i, 1);
+          renderChips();
+        });
       });
-      avgChips.append(
-        el("span", { class: "chip" }, [formatSignificant(value), x]),
-      );
+      avgChips.append(chip);
     });
   }
 
@@ -188,6 +224,7 @@ function buildReportTab(): void {
       box.input.value = "";
       calcResult.replaceChildren();
       renderChips();
+      animateIn(avgChips.lastElementChild);
       box.input.focus();
     }
     add.addEventListener("click", ConfirmValue);
@@ -225,6 +262,7 @@ function buildReportTab(): void {
           ? calc.runList(avgValues)
           : calc.run(...avgValues);
         result.sci = sciBox.checked;
+        applyUnit(result, calc);
         state.calculations.push(result);
         calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
         avgValues = [];
@@ -247,6 +285,7 @@ function buildReportTab(): void {
     try {
       const result = calc.run(...values);
       result.sci = sciBox.checked;
+        applyUnit(result, calc);
       state.calculations.push(result);
       calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
     } catch (e) {
@@ -254,6 +293,7 @@ function buildReportTab(): void {
     }
   });
   renderCalcFields(picker.value);
+  renderUnits(picker.value);
 
   const tablesbox = el("div", { class: "fields" });
 
@@ -266,49 +306,85 @@ function buildReportTab(): void {
 
   function rendertables(): void {
     tablesbox.replaceChildren();
-    state.tables.forEach((table) => {
+    state.tables.forEach((table, t) => {
       const title = field("Table Title", "Trial Data");
       title.input.value = table.title;
-      title.input.addEventListener(
-        "input",
-        () => (table.title = title.input.value),
-      );
+      title.input.addEventListener("input", () => (table.title = title.input.value));
+
+      // Header row: each column name, with an x to delete that column.
+      // The x is hidden when only one column is left, so a table can't
+      // end up with no columns at all.
       const Headrow = el("tr");
       table.headers.forEach((h, c) => {
-        Headrow.append(
-          el("th", {}, [
-            cell(h, (v) => {
-              table.headers[c] = v;
-            }),
-          ]),
-        );
+        const th = el("th", {}, [cell(h, (v) => (table.headers[c] = v))]);
+        if (table.headers.length > 1) {
+          const dropCol = el("button", { class: "chip-x col-x", type: "button", title: "Delete column" }, ["\u00d7"]);
+          dropCol.addEventListener("click", () => {
+            // Every cell in this column: the header plus one per row.
+            const column = [...th.closest("table")!.querySelectorAll(`tr > :nth-child(${c + 1})`)];
+            animateOut(column, () => {
+              table.headers.splice(c, 1);
+              for (const row of table.rows) row.splice(c, 1);
+              rendertables();
+            });
+          });
+          th.append(dropCol);
+        }
+        Headrow.append(th);
       });
+      Headrow.append(el("th", { class: "row-x-cell" })); // empty corner above the row x's
+
+      // Body: one input per cell, plus an x at the end of each row.
       const body = el("tbody");
       table.rows.forEach((row, r) => {
         const tr = el("tr");
         table.headers.forEach((_, c) => {
-          tr.append(
-            el("td", {}, [cell(row[c] ?? "", (v) => (table.rows[r][c] = v))]),
-          );
+          tr.append(el("td", {}, [cell(row[c] ?? "", (v) => (table.rows[r][c] = v))]));
         });
+        const dropRow = el("button", { class: "chip-x", type: "button", title: "Delete row" }, ["\u00d7"]);
+        dropRow.addEventListener("click", () => {
+          animateOut(tr, () => {
+            table.rows.splice(r, 1);
+            rendertables();
+          });
+        });
+        tr.append(el("td", { class: "row-x-cell" }, [dropRow]));
         body.append(tr);
       });
-      const addRow = el("button", { class: "ghost", type: "button" }, [
-        "Add Row",
-      ]);
+
+      const addRow = el("button", { class: "ghost", type: "button" }, ["Add Row"]);
       addRow.addEventListener("click", () => {
         table.rows.push(table.headers.map(() => ""));
         rendertables();
+        animateIn(tablesbox.children[t]?.querySelector("tbody")?.lastElementChild);
       });
-      const grid = el("table", { class: "grid" }, [
-        el("thead", {}, [Headrow]),
-        body,
-      ]);
+
+      // A new column gets a placeholder name, and every existing row gets
+      // an empty cell so the rows stay the same width as the headers.
+      const addCol = el("button", { class: "ghost", type: "button" }, ["Add Column"]);
+      addCol.addEventListener("click", () => {
+        table.headers.push(`Column ${table.headers.length + 1}`);
+        for (const row of table.rows) row.push("");
+        rendertables();
+        // The new column is second-to-last: the last one holds the row x's.
+        animateIn(...(tablesbox.children[t]?.querySelectorAll("tr > :nth-last-child(2)") ?? []));
+      });
+
+      const dropTable = el("button", { class: "chip-x", type: "button", title: "Delete table" }, ["\u00d7"]);
+      dropTable.addEventListener("click", () => {
+        animateOut(tablesbox.children[t], () => {
+          state.tables.splice(t, 1);
+          rendertables();
+        });
+      });
+
+      const grid = el("table", { class: "grid" }, [el("thead", {}, [Headrow]), body]);
       tablesbox.append(
         el("div", { class: "table-block" }, [
+          dropTable,
           title.wrap,
           el("div", { class: "grid-wrap" }, [grid]),
-          el("div", { class: "actions" }, [addRow]),
+          el("div", { class: "actions" }, [addRow, addCol]),
         ]),
       );
     });
@@ -318,6 +394,15 @@ function buildReportTab(): void {
   firsttable.rows.push(firsttable.headers.map(() => ""));
   state.tables.push(firsttable);
   rendertables();
+
+  const addTable = el("button", { class: "primary", type: "button" }, ["Add Table"]);
+  addTable.addEventListener("click", () => {
+    const fresh = makeDataTable();
+    fresh.rows.push(fresh.headers.map(() => ""));
+    state.tables.push(fresh);
+    rendertables();
+    animateIn(tablesbox.lastElementChild);
+  });
 
   const qaList = el("div", { class: "fields" });
   function renderQuestions(): void {
@@ -334,11 +419,14 @@ function buildReportTab(): void {
         { class: "chip-x", type: "button", title: "Remove question" },
         ["\u00d7"],
       );
+      const box = el("div", { class: "qa-row" }, [x, q.wrap, a.wrap]);
       x.addEventListener("click", () => {
-        state.analysis.splice(i, 1);
-        renderQuestions();
+        animateOut(box, () => {
+          state.analysis.splice(i, 1);
+          renderQuestions();
+        });
       });
-      qaList.append(el("div", { class: "qa-row" }, [x, q.wrap, a.wrap]));
+      qaList.append(box);
     });
   }
 
@@ -348,6 +436,7 @@ function buildReportTab(): void {
   addQuestion.addEventListener("click", () => {
     state.analysis.push({ question: "", answer: "" });
     renderQuestions();
+    animateIn(qaList.lastElementChild);
   });
 
   state.analysis.push({ question: "", answer: "" });
@@ -364,11 +453,12 @@ function buildReportTab(): void {
       "Data tables",
       "Click on a header to rename it",
       tablesbox,
+      el("div", { class: "actions" }, [addTable]),
     ),
     card(
       "Calculations",
       null,
-      pickerWrap,
+      row(pickerWrap, unitWrap),
       calcFields,
       el("div", { class: "actions" }, [calcButton, sciWrap]),
       calcResult,

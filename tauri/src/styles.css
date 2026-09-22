@@ -399,3 +399,258 @@ button.ghost {
   cursor: pointer;
 }
 button.ghost:hover { border-color: var(--action); color: var(--action); }
+
+/* -- table editing controls ---------------------------------------------- */
+.table-block { position: relative; }
+.table-block > .chip-x {          /* delete-table x, top-right of the box */
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+table.grid th { position: relative; }
+table.grid th input.cell { padding-right: 28px; }   /* room for the column x */
+.col-x {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+}
+/* The narrow column holding each row's x. No border or fill, so it reads
+   as sitting beside the table rather than being part of it. */
+table.grid .row-x-cell {
+  width: 30px;
+  border: none;
+  background: transparent;
+  text-align: center;
+  padding: 0 2px;
+}
+
+select:disabled { opacity: 0.6; cursor: default; }
+
+/* -- dropdowns ------------------------------------------------------------ */
+/*
+ * The browser's own <select> looks different on every OS and ignores the
+ * theme. appearance: none strips it back to a plain box that takes our
+ * colours, and a small chevron is drawn in as a background image. The
+ * chevron is a mid grey so it reads on both the dark and light fields.
+ */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2394A3B8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+  padding-right: 36px;
+  cursor: pointer;
+  font-weight: 600;
+}
+select:hover:not(:disabled) { border-color: var(--action); }
+select:disabled { opacity: 0.55; cursor: default; }
+
+/* -- custom dropdown (ui.ts enhanceSelect) -------------------------------- */
+:root { --pick: #60A5FA; }                   /* selected option, dark */
+:root[data-theme="light"] { --pick: #2563EB; }
+
+.dd { position: relative; }
+.dd-native { display: none; }                /* the real <select>, kept for its value */
+
+.dd-button {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 36px 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+.dd-button::after {                          /* the chevron, flips when open */
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 12px;
+  height: 8px;
+  margin-top: -4px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2394A3B8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+  transition: transform 0.15s ease;
+}
+.dd-button[aria-expanded="true"]::after { transform: rotate(180deg); }
+.dd-button:hover:not(:disabled),
+.dd-button[aria-expanded="true"] { border-color: var(--action); }
+.dd-button:focus-visible { outline: 2px solid var(--action); outline-offset: -1px; }
+.dd-button:disabled { opacity: 0.55; cursor: default; }
+.dd-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.dd-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.dd.up .dd-list { top: auto; bottom: calc(100% + 6px); }
+
+.dd-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.dd-option.active { background: var(--chip); }
+.dd-option.selected { color: var(--pick); font-weight: 700; }
+.dd-option.selected::after { content: "\2713"; }   /* check mark */
+
+/* -- theme toggle: sun / moon icon --------------------------------------- */
+/*
+ * Both icons live in one SVG, stacked. Only one is visible at a time; the
+ * other is shrunk, rotated and faded out. Switching theme swaps which one is
+ * "in", and the transition animates it: the sun spins away as the moon spins
+ * in. The overshooting curve (1.6 in the bezier) gives the little bounce.
+ *
+ * Dark mode shows the sun and light mode shows the moon — the icon is what
+ * you'd switch TO, matching the aria-label in theme.ts.
+ */
+#theme-toggle {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+#theme-toggle:hover { border-color: rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.08); }
+#theme-toggle:active { transform: scale(0.92); }
+#theme-toggle:focus-visible { outline: 2px solid var(--tab-on); outline-offset: 2px; }
+#theme-toggle svg { width: 20px; height: 20px; overflow: visible; }
+
+.icon-sun,
+.icon-moon {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.34, 1.6, 0.5, 1), opacity 0.25s ease;
+}
+.icon-moon { opacity: 0; transform: rotate(-90deg) scale(0.3); }
+:root[data-theme="light"] .icon-sun { opacity: 0; transform: rotate(90deg) scale(0.3); }
+:root[data-theme="light"] .icon-moon { opacity: 1; transform: none; }
+
+/* The circular reveal: turn off the browser's default cross-fade, so the
+   only animation is the growing circle from theme.ts. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Respect the OS "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  .icon-sun, .icon-moon, #theme-toggle { transition: none; }
+}
+
+/* -- accent colours -------------------------------------------------------- */
+/*
+ * Blue is the palette at the top of this file. Each block here swaps only
+ * the "clickable" colours. These come after the light block on purpose: same
+ * strength of selector, so the later one wins. --pick needs a light version
+ * too, which is why each accent has a second, two-attribute block.
+ * All pairs checked: white on --action is 5.2:1 or better everywhere.
+ */
+:root[data-accent="green"]  { --action: #047857; --action-dark: #065F46; --tab-on: #6EE7B7; --pick: #34D399; }
+:root[data-accent="purple"] { --action: #7C3AED; --action-dark: #6D28D9; --tab-on: #C4B5FD; --pick: #A78BFA; }
+:root[data-accent="orange"] { --action: #C2410C; --action-dark: #9A3412; --tab-on: #FDBA74; --pick: #FB923C; }
+:root[data-accent="rose"]   { --action: #BE123C; --action-dark: #9F1239; --tab-on: #FDA4AF; --pick: #FB7185; }
+:root[data-theme="light"][data-accent="green"]  { --pick: #047857; }
+:root[data-theme="light"][data-accent="purple"] { --pick: #7C3AED; }
+:root[data-theme="light"][data-accent="orange"] { --pick: #C2410C; }
+:root[data-theme="light"][data-accent="rose"]   { --pick: #BE123C; }
+
+/* The dots in the header. */
+.accents { display: flex; gap: 10px; align-self: center; margin-right: 10px; }
+.accent-dot {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--dot);
+  cursor: pointer;
+  /* The ring is a shadow, so it doesn't change the dot's size. */
+  box-shadow: 0 0 0 0 transparent;
+  transition: transform 0.2s cubic-bezier(0.34, 1.6, 0.5, 1), box-shadow 0.2s ease;
+}
+.accent-dot:hover { transform: scale(1.2); }
+.accent-dot:active { transform: scale(0.9); }
+.accent-dot[aria-checked="true"] { box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px var(--accent-ink); }
+.accent-dot:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; }
+
+/* Colours fade to the new accent instead of snapping. */
+.tab { transition: color 0.2s ease, border-color 0.2s ease; }
+input, textarea, .dd-button { transition: border-color 0.15s ease, outline-color 0.15s ease; }
+
+/* -- button feel ----------------------------------------------------------- */
+/*
+ * Hover lifts the button 1px with a soft glow in its own colour; pressing
+ * pushes it down past where it started. The press uses a faster transition
+ * than the release, so the click feels instant but the bounce back is soft.
+ */
+button.primary,
+button.ghost {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.25s cubic-bezier(0.34, 1.6, 0.5, 1);
+}
+button.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -4px color-mix(in srgb, var(--action) 70%, transparent);
+}
+button.ghost:hover { transform: translateY(-1px); }
+button.primary:active,
+button.ghost:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: none;
+  transition-duration: 0.06s;
+}
+button.primary:focus-visible,
+button.ghost:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+
+.chip-x { transition: background 0.12s ease, color 0.12s ease, transform 0.15s ease; }
+.chip-x:active { transform: scale(0.85); }
+.col-x:active { transform: translateY(-50%) scale(0.85); }   /* keep its centring */
+
+/* -- add / delete (ui.ts animateIn / animateOut) --------------------------- */
+.leaving { overflow: hidden; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  button.primary, button.ghost, .chip-x, .accent-dot, .tab { transition: none; }
+  button.primary:hover, button.ghost:hover,
+  button.primary:active, button.ghost:active { transform: none; }
+}
