@@ -346,3 +346,56 @@ button.primary:hover { background: var(--action-dark); }
   top: 8px;
   right: 8px;
 }
+
+/* -- data tables ---------------------------------------------------------- */
+/*
+ * Each table is an editable grid: every cell is a borderless input, so it
+ * reads like a spreadsheet rather than a stack of boxes. The wrapper scrolls
+ * sideways when there are more columns than fit, instead of squashing them.
+ */
+.table-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.grid-wrap { overflow-x: auto; }
+table.grid { border-collapse: collapse; width: 100%; }
+table.grid th,
+table.grid td { border: 1px solid var(--line); padding: 0; }
+table.grid th { background: var(--chip); }
+
+/* These selectors are deliberately more specific than the general
+   input[type="text"] rule, so the cells lose its box and border. */
+table.grid input.cell {
+  width: 100%;
+  min-width: 90px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 9px;
+  font: inherit;
+  color: var(--ink);
+}
+table.grid th input.cell { font-weight: 700; }
+table.grid input.cell:focus {
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
+}
+
+/* A quieter button for secondary actions like "Add row". */
+button.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button.ghost:hover { border-color: var(--action); color: var(--action); }

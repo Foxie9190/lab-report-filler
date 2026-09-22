@@ -6,7 +6,12 @@
  * only ever talk through the types in backend/models.ts.
  */
 
-import { makeLabReport, pretty, formatSignificant } from "./backend/models";
+import {
+  makeLabReport,
+  makeDataTable,
+  pretty,
+  formatSignificant,
+} from "./backend/models";
 import type { LabReport } from "./backend/models";
 import { area, banner, card, el, field, row } from "./ui";
 import { setUpTheme } from "./theme";
@@ -249,8 +254,72 @@ function buildReportTab(): void {
     }
   });
   renderCalcFields(picker.value);
-  const qaList = el("div", { class: "fields" });
 
+  const tablesbox = el("div", { class: "fields" });
+
+  function cell(value: string, onInput: (v: string) => void): HTMLInputElement {
+    const input = el("input", { class: "cell" });
+    input.value = value;
+    input.addEventListener("input", () => onInput(input.value));
+    return input;
+  }
+
+  function rendertables(): void {
+    tablesbox.replaceChildren();
+    state.tables.forEach((table) => {
+      const title = field("Table Title", "Trial Data");
+      title.input.value = table.title;
+      title.input.addEventListener(
+        "input",
+        () => (table.title = title.input.value),
+      );
+      const Headrow = el("tr");
+      table.headers.forEach((h, c) => {
+        Headrow.append(
+          el("th", {}, [
+            cell(h, (v) => {
+              table.headers[c] = v;
+            }),
+          ]),
+        );
+      });
+      const body = el("tbody");
+      table.rows.forEach((row, r) => {
+        const tr = el("tr");
+        table.headers.forEach((_, c) => {
+          tr.append(
+            el("td", {}, [cell(row[c] ?? "", (v) => (table.rows[r][c] = v))]),
+          );
+        });
+        body.append(tr);
+      });
+      const addRow = el("button", { class: "ghost", type: "button" }, [
+        "Add Row",
+      ]);
+      addRow.addEventListener("click", () => {
+        table.rows.push(table.headers.map(() => ""));
+        rendertables();
+      });
+      const grid = el("table", { class: "grid" }, [
+        el("thead", {}, [Headrow]),
+        body,
+      ]);
+      tablesbox.append(
+        el("div", { class: "table-block" }, [
+          title.wrap,
+          el("div", { class: "grid-wrap" }, [grid]),
+          el("div", { class: "actions" }, [addRow]),
+        ]),
+      );
+    });
+  }
+
+  const firsttable = makeDataTable();
+  firsttable.rows.push(firsttable.headers.map(() => ""));
+  state.tables.push(firsttable);
+  rendertables();
+
+  const qaList = el("div", { class: "fields" });
   function renderQuestions(): void {
     qaList.replaceChildren();
     state.analysis.forEach((qa, i) => {
@@ -260,7 +329,16 @@ function buildReportTab(): void {
       a.input.value = qa.answer;
       q.input.addEventListener("input", () => (qa.question = q.input.value));
       a.input.addEventListener("input", () => (qa.answer = a.input.value));
-      qaList.append(el("div", { class: "qa-row" }, [q.wrap, a.wrap]));
+      const x = el(
+        "button",
+        { class: "chip-x", type: "button", title: "Remove question" },
+        ["\u00d7"],
+      );
+      x.addEventListener("click", () => {
+        state.analysis.splice(i, 1);
+        renderQuestions();
+      });
+      qaList.append(el("div", { class: "qa-row" }, [x, q.wrap, a.wrap]));
     });
   }
 
@@ -284,11 +362,8 @@ function buildReportTab(): void {
   host.append(
     card(
       "Data tables",
-      null,
-      banner(
-        "Data tables are next on the UI list — coming in the next pass.",
-        "todo",
-      ),
+      "Click on a header to rename it",
+      tablesbox,
     ),
     card(
       "Calculations",
