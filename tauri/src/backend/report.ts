@@ -39,10 +39,13 @@ export function numberedList(text: string): string {
 
 /** One DataTable as a Markdown table. Returns "" if there's nothing in it. */
 export function markdownTable(table: DataTable): string {
-  if (table.headers.length === 0 || table.rows.length === 0) return "";
+  // Rows where every cell is blank are left out: the empty row you never
+  // filled in shouldn't print as "|  |  |" in the report.
+  const rows = table.rows.filter((row) => row.some((cell) => cell.trim() !== ""));
+  if (table.headers.length === 0 || rows.length === 0) return "";
   const head = `| ${table.headers.join(" | ")} |`;
   const sep = `| ${table.headers.map(() => "---").join(" | ")} |`;
-  const body = table.rows.map((row) => {
+  const body = rows.map((row) => {
     const cells = [
       ...row,
       ...Array(Math.max(table.headers.length - row.length, 0)).fill(""),

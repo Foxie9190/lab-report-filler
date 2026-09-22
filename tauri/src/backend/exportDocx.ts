@@ -153,14 +153,20 @@ function toRGB(hex: string): RGB {
 
 function toHex([r, g, b]: RGB): string {
   return [r, g, b]
-    .map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0"))
+    .map((v) =>
+      Math.round(Math.min(255, Math.max(0, v)))
+        .toString(16)
+        .padStart(2, "0"),
+    )
     .join("")
     .toUpperCase();
 }
 
 /** Blend `color` toward `target`. amount 0 = unchanged, 1 = fully target. */
 function mix(color: RGB, target: RGB, amount: number): RGB {
-  return [0, 1, 2].map((i) => color[i] + (target[i] - color[i]) * amount) as RGB;
+  return [0, 1, 2].map(
+    (i) => color[i] + (target[i] - color[i]) * amount,
+  ) as RGB;
 }
 
 /** How bright a colour looks to a person (the WCAG formula). */
@@ -180,7 +186,8 @@ function contrastOnWhite(color: RGB): number {
 /** Darken in small steps until the colour reaches `ratio` against white. */
 function darkenUntil(color: RGB, ratio: number): RGB {
   let c = color;
-  for (let i = 0; i < 20 && contrastOnWhite(c) < ratio; i++) c = mix(c, [0, 0, 0], 0.1);
+  for (let i = 0; i < 20 && contrastOnWhite(c) < ratio; i++)
+    c = mix(c, [0, 0, 0], 0.1);
   return c;
 }
 
@@ -274,8 +281,17 @@ export async function buildDocx(
       heading: HeadingLevel.HEADING_1,
       keepNext: true, // never leave a heading alone at the bottom of a page
       spacing: { before: 360, after: 120 },
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: theme.accent, space: 4 } },
-      children: [new TextRun({ text, bold: true, color: theme.accent, size: 28 })],
+      border: {
+        bottom: {
+          style: BorderStyle.SINGLE,
+          size: 6,
+          color: theme.accent,
+          space: 4,
+        },
+      },
+      children: [
+        new TextRun({ text, bold: true, color: theme.accent, size: 28 }),
+      ],
     });
   }
 
@@ -316,7 +332,10 @@ export async function buildDocx(
       ...t,
       rows: t.rows.filter((row) => row.some((cell) => cell.trim() !== "")),
     }))
-    .filter((t) => t.headers.length > 0 && (t.rows.length > 0 || t.title.trim() !== ""));
+    .filter(
+      (t) =>
+        t.headers.length > 0 && (t.rows.length > 0 || t.title.trim() !== ""),
+    );
 
   if (tables.length > 0) {
     children.push(heading("Data"));
@@ -325,7 +344,14 @@ export async function buildDocx(
         children.push(
           new Paragraph({
             spacing: { before: 160, after: 80 },
-            children: [new TextRun({ text: table.title.trim(), bold: true, color: theme.dark, size: 22 })],
+            children: [
+              new TextRun({
+                text: table.title.trim(),
+                bold: true,
+                color: theme.dark,
+                size: 22,
+              }),
+            ],
           }),
         );
       }
@@ -340,17 +366,26 @@ export async function buildDocx(
   function dataTable(headers: string[], rows: string[][]): Table {
     const each = Math.floor(CONTENT_WIDTH / headers.length);
     const widths = headers.map((_, i) =>
-      i === headers.length - 1 ? CONTENT_WIDTH - each * (headers.length - 1) : each,
+      i === headers.length - 1
+        ? CONTENT_WIDTH - each * (headers.length - 1)
+        : each,
     );
     const line = { style: BorderStyle.SINGLE, size: 4, color: "BFC5CC" };
     const borders = { top: line, bottom: line, left: line, right: line };
 
-    function makeCell(text: string, col: number, fill: string | null, isHeader: boolean): TableCell {
+    function makeCell(
+      text: string,
+      col: number,
+      fill: string | null,
+      isHeader: boolean,
+    ): TableCell {
       return new TableCell({
         width: { size: widths[col], type: WidthType.DXA },
         borders,
         // CLEAR, not SOLID: SOLID paints the cell black in Word.
-        shading: fill ? { type: ShadingType.CLEAR, fill, color: "auto" } : undefined,
+        shading: fill
+          ? { type: ShadingType.CLEAR, fill, color: "auto" }
+          : undefined,
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
         children: [
           new Paragraph({
@@ -376,7 +411,12 @@ export async function buildDocx(
         new TableRow({
           children: headers.map((_, c) => {
             const striped = options.stripedRows && r % 2 === 1;
-            return makeCell(row[c] ?? "", c, striped ? theme.light : null, false);
+            return makeCell(
+              row[c] ?? "",
+              c,
+              striped ? theme.light : null,
+              false,
+            );
           }),
         }),
     );
@@ -394,12 +434,28 @@ export async function buildDocx(
     children.push(heading("Calculations"));
     for (const calc of report.calculations) {
       const inside: Paragraph[] = [
-        new Paragraph({ children: [new TextRun({ text: calc.name, bold: true, color: theme.dark, size: 22 })] }),
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: calc.name,
+              bold: true,
+              color: theme.dark,
+              size: 22,
+            }),
+          ],
+        }),
       ];
       if (options.showFormulas && calc.formula.trim() !== "") {
         inside.push(
           new Paragraph({
-            children: [new TextRun({ text: calc.formula, italics: true, color: theme.muted, size: 20 })],
+            children: [
+              new TextRun({
+                text: calc.formula,
+                italics: true,
+                color: theme.muted,
+                size: 20,
+              }),
+            ],
           }),
         );
       }
@@ -407,8 +463,17 @@ export async function buildDocx(
         inside.push(
           new Paragraph({
             children: [
-              new TextRun({ text: "Work: ", bold: true, color: theme.ink, size: 20 }),
-              new TextRun({ text: calc.work.trim(), color: theme.ink, size: 20 }),
+              new TextRun({
+                text: "Work: ",
+                bold: true,
+                color: theme.ink,
+                size: 20,
+              }),
+              new TextRun({
+                text: calc.work.trim(),
+                color: theme.ink,
+                size: 20,
+              }),
             ],
           }),
         );
@@ -417,8 +482,18 @@ export async function buildDocx(
         new Paragraph({
           spacing: { before: 60 },
           children: [
-            new TextRun({ text: "Answer: ", bold: true, color: theme.ink, size: 22 }),
-            new TextRun({ text: pretty(calc), bold: true, color: theme.accent, size: 24 }),
+            new TextRun({
+              text: "Answer: ",
+              bold: true,
+              color: theme.ink,
+              size: 22,
+            }),
+            new TextRun({
+              text: pretty(calc),
+              bold: true,
+              color: theme.accent,
+              size: 24,
+            }),
           ],
         }),
       );
@@ -439,9 +514,17 @@ export async function buildDocx(
           children: [
             new TableCell({
               width: { size: CONTENT_WIDTH, type: WidthType.DXA },
-              shading: { type: ShadingType.CLEAR, fill: theme.box, color: "auto" },
+              shading: {
+                type: ShadingType.CLEAR,
+                fill: theme.box,
+                color: "auto",
+              },
               borders: {
-                left: { style: BorderStyle.SINGLE, size: 24, color: theme.accent },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 24,
+                  color: theme.accent,
+                },
                 top: none,
                 bottom: none,
                 right: none,
@@ -457,7 +540,9 @@ export async function buildDocx(
 
   // ---- analysis questions ---------------------------------------------------
   // Rows where both boxes are blank are skipped, same as the preview.
-  const asked = report.analysis.filter((qa) => qa.question.trim() !== "" || qa.answer.trim() !== "");
+  const asked = report.analysis.filter(
+    (qa) => qa.question.trim() !== "" || qa.answer.trim() !== "",
+  );
   if (asked.length > 0) {
     children.push(heading("Analysis Questions"));
     asked.forEach((qa, i) => {
@@ -466,8 +551,18 @@ export async function buildDocx(
           spacing: { before: 200, after: 60 },
           keepNext: true, // keep the question on the same page as its answer
           children: [
-            new TextRun({ text: `${i + 1}.  `, bold: true, color: theme.accent, size: 22 }),
-            new TextRun({ text: qa.question.trim(), bold: true, color: theme.ink, size: 22 }),
+            new TextRun({
+              text: `${i + 1}.  `,
+              bold: true,
+              color: theme.accent,
+              size: 22,
+            }),
+            new TextRun({
+              text: qa.question.trim(),
+              bold: true,
+              color: theme.ink,
+              size: 22,
+            }),
           ],
         }),
       );
@@ -486,7 +581,14 @@ export async function buildDocx(
         children.push(
           new Paragraph({
             indent: { left: 360 },
-            children: [new TextRun({ text: "(not answered)", italics: true, color: theme.muted, size: 22 })],
+            children: [
+              new TextRun({
+                text: "(not answered)",
+                italics: true,
+                color: theme.muted,
+                size: 22,
+              }),
+            ],
           }),
         );
       }

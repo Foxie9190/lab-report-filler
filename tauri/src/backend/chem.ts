@@ -124,7 +124,7 @@ export function average(values: number[]): CalcResult {
   const shown = values.map((v) => formatSignificant(v)).join(" + ");
   return {
     name: "Average",
-    formula: "All Numbers Added Up then divided my the amount of numbers",
+    formula: "All Numbers Added Up then divided by the amount of numbers",
     value: value,
     unit: "",
     work: `(${shown}) / ${values.length} = ${formatSignificant(value)}`,

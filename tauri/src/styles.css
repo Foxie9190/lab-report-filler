@@ -7,7 +7,7 @@
  * twice — only the values change.
  *
  * Two accents on purpose:
- *   --accent   the header and tab bar. Chrome. You look past it.
+ *   --accent   the header bar. Chrome. You look past it.
  *   --action   buttons and focus rings. The saturated one, spent only on
  *              things you click.
  * Saturating the chrome instead would make the button compete with
@@ -24,7 +24,7 @@
   --accent-ink: #E6EAF2;
   --action: #2563EB;          /* the saturated blue */
   --action-dark: #1D4ED8;
-  --tab-on: #7DD3FC;          /* selected tab, needs to read on near-black */
+  --tab-on: #7DD3FC;          /* highlights on the dark header bar */
 
   --bg: #0F172A;              /* page */
   --card: #1B2639;            /* cards sit above the page */
@@ -111,35 +111,9 @@ body {
 }
 #theme-toggle:hover { border-color: rgba(255, 255, 255, 0.6); }
 
-/* -- tabs ---------------------------------------------------------------- */
-.tabbar {
-  background: var(--accent);
-  display: flex;
-  gap: 4px;
-  padding: 0 12px;
-  flex: 0 0 auto;
-}
-.tab {
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  color: rgba(230, 234, 242, 0.65);
-  font: inherit;
-  font-weight: 600;
-  padding: 10px 16px;
-  cursor: pointer;
-}
-.tab:hover { color: var(--accent-ink); }
-.tab[aria-selected="true"] {
-  color: var(--tab-on);
-  border-bottom-color: var(--tab-on);
-}
-
-/* Each panel scrolls itself. This is the CSS answer to the Flet problem
-   where a page-level scroll fought the tab view. */
+/* The panel scrolls itself, rather than the whole page. */
 main { flex: 1 1 auto; min-height: 0; position: relative; }
-.tabpanel { position: absolute; inset: 0; overflow-y: auto; }
-.tabpanel[hidden] { display: none; }
+.panel { position: absolute; inset: 0; overflow-y: auto; }
 
 .wrap {
   max-width: var(--max-width);
@@ -610,7 +584,6 @@ select:disabled { opacity: 0.55; cursor: default; }
 .accent-dot:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; }
 
 /* Colours fade to the new accent instead of snapping. */
-.tab { transition: color 0.2s ease, border-color 0.2s ease; }
 input, textarea, .dd-button { transition: border-color 0.15s ease, outline-color 0.15s ease; }
 
 /* -- button feel ----------------------------------------------------------- */
@@ -650,7 +623,7 @@ button.ghost:focus-visible { outline: 2px solid var(--action); outline-offset: 2
 .leaving { overflow: hidden; pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  button.primary, button.ghost, .chip-x, .accent-dot, .tab { transition: none; }
+  button.primary, button.ghost, .chip-x, .accent-dot { transition: none; }
   button.primary:hover, button.ghost:hover,
   button.primary:active, button.ghost:active { transform: none; }
 }
@@ -702,3 +675,36 @@ button.primary:disabled { opacity: 0.6; cursor: progress; transform: none; box-s
   font-size: 12px;
   font-weight: 700;
 }
+
+/* -- the list of added calculations --------------------------------------- */
+/*
+ * Same shape as a question row: its own box with an x in the corner. The
+ * answer is the big line, because that's what you check at a glance; the
+ * formula and work sit under it in smaller, quieter text.
+ */
+.sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.calc-row {
+  position: relative;
+  padding: 12px 40px 12px 14px;   /* room for the x on the right */
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--action);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.calc-row .chip-x { position: absolute; top: 8px; right: 8px; }
+.calc-name { font-size: 12px; font-weight: 700; color: var(--muted); }
+.calc-answer {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.calc-formula { margin-top: 4px; font-size: 12px; font-style: italic; color: var(--muted); }
+.calc-work { margin-top: 2px; font-size: 12px; color: var(--muted); }

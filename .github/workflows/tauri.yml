@@ -1,0 +1,81 @@
+name: Build app (version 2, Tauri)
+
+# Runs whenever you push a tag that starts with "v", like v2.0.0.
+# GitHub builds the app on their own Mac, Windows and Linux machines and
+# attaches every installer to a Release with that tag.
+#
+# The Python app (version 1) has its own workflow, build.yml, and its own
+# tag prefix: py-v1.2.1. That way tagging one never rebuilds the other.
+#
+# To ship a version:
+#   1. bump the version in tauri/package.json, tauri/src-tauri/Cargo.toml,
+#      tauri/src-tauri/tauri.conf.json and VERSION in tauri/src/main.ts
+#   2. git tag v2.0.0 && git push origin v2.0.0
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:   # also lets you press "Run workflow" on GitHub by hand
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false   # a broken Linux build shouldn't kill the Mac one
+      matrix:
+        include:
+          # One Mac build that runs on both Apple Silicon and Intel.
+          - platform: macos-latest
+            target: universal-apple-darwin
+            args: "--target universal-apple-darwin"
+          - platform: ubuntu-22.04
+            target: ""
+            args: ""
+          - platform: windows-latest
+            target: ""
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri draws its window with the system webview. On Linux that's
+      # WebKitGTK, which isn't installed on a bare runner.
+      - name: Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf build-essential curl wget file libxdo-dev libssl-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tauri/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # Empty on Windows and Linux; the Mac build needs both chips.
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      # Rust compiling from scratch takes several minutes. This keeps the
+      # compiled crates between runs, so later builds are much quicker.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - name: Install npm packages
+        working-directory: tauri
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: tauri
+          args: ${{ matrix.args }}
+          # Only tag pushes make a Release; a manual run just builds.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: "Lab Report Filler ${{ github.ref_name }}"
+          releaseDraft: true
+          prerelease: false

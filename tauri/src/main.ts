@@ -1,5 +1,5 @@
 /**
- * The app. Wires the two tabs and builds the report form.
+ * The app. Builds the report form and wires it to the backend.
  *
  * The UI/backend split is the same as the Python version: everything in
  * src/backend is Landon's, everything else here is the interface. They
@@ -13,44 +13,42 @@ import {
   formatSignificant,
 } from "./backend/models";
 import type { LabReport } from "./backend/models";
-import { animateIn, animateOut, area, banner, card, el, enhanceSelect, field, row } from "./ui";
+import {
+  animateIn,
+  animateOut,
+  area,
+  banner,
+  card,
+  el,
+  enhanceSelect,
+  field,
+  row,
+} from "./ui";
 import { setUpTheme } from "./theme";
 import { CALCULATIONS } from "./backend/chem";
 import type { Calculation } from "./backend/chem";
 import type { CalcResult } from "./backend/models";
 import { buildReport } from "./backend/report";
-import { buildDocx, CUSTOM, customTheme, THEMES, themeNames } from "./backend/exportDocx";
+import {
+  buildDocx,
+  CUSTOM,
+  customTheme,
+  THEMES,
+  themeNames,
+} from "./backend/exportDocx";
 import type { DocxOptions } from "./backend/exportDocx";
 import { fileNameFor, saveDocx } from "./saveFile";
 
-const VERSION = "0.1.0";
+const VERSION = "2.0.0";
 
 /** Everything the person has typed. One object, same shape as the report. */
 const state: LabReport = makeLabReport();
 
 // ---------------------------------------------------------------------------
-// Tabs
+// The report screen
 // ---------------------------------------------------------------------------
 
-function setUpTabs(): void {
-  const tabs = [...document.querySelectorAll<HTMLButtonElement>(".tab")];
-  for (const tab of tabs) {
-    tab.addEventListener("click", () => {
-      for (const other of tabs) {
-        const on = other === tab;
-        other.setAttribute("aria-selected", String(on));
-        const panel = document.getElementById(`panel-${other.dataset.tab}`);
-        if (panel) panel.hidden = !on;
-      }
-    });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Lab report tab
-// ---------------------------------------------------------------------------
-
-function buildReportTab(): void {
+function buildReportScreen(): void {
   const host = document.getElementById("report-sections");
   if (!host) return;
 
@@ -152,12 +150,17 @@ function buildReportTab(): void {
   // The unit dropdown. Its options come from the chosen calculation's
   // `units` list in chem.ts, so it's rebuilt whenever the calculation changes.
   const unitPicker = el("select");
-  const unitWrap = el("label", { class: "f" }, [el("span", {}, ["Unit"]), enhanceSelect(unitPicker)]);
+  const unitWrap = el("label", { class: "f" }, [
+    el("span", {}, ["Unit"]),
+    enhanceSelect(unitPicker),
+  ]);
 
   function renderUnits(key: string): void {
     unitPicker.replaceChildren();
     for (const u of CALCULATIONS[key].units) {
-      unitPicker.append(el("option", { value: u.label }, [u.label || "(no unit)"]));
+      unitPicker.append(
+        el("option", { value: u.label }, [u.label || "(no unit)"]),
+      );
     }
     unitPicker.disabled = CALCULATIONS[key].units.length < 2;
   }
@@ -250,6 +253,37 @@ function buildReportTab(): void {
   ]);
 
   const calcResult = el("div", { class: "fields" });
+
+  // Everything added so far. state.calculations is the real list — this
+  // just draws it, so the card and the report can never disagree.
+  const calcList = el("div", { class: "fields" });
+  function renderCalcList(): void {
+    calcList.replaceChildren();
+    if (state.calculations.length === 0) {
+      calcList.append(el("span", { class: "chips-empty" }, ["Nothing added yet."]));
+      return;
+    }
+    state.calculations.forEach((result, i) => {
+      const x = el("button", { class: "chip-x", type: "button", title: "Remove this calculation" }, ["\u00d7"]);
+      const parts: Node[] = [
+        x,
+        el("div", { class: "calc-name" }, [result.name]),
+        el("div", { class: "calc-answer" }, [pretty(result)]),
+      ];
+      if (result.formula) parts.push(el("div", { class: "calc-formula" }, [result.formula]));
+      if (result.work) parts.push(el("div", { class: "calc-work" }, [result.work]));
+      const box = el("div", { class: "calc-row" }, parts);
+      x.addEventListener("click", () => {
+        animateOut(box, () => {
+          state.calculations.splice(i, 1);
+          renderCalcList();
+        });
+      });
+      calcList.append(box);
+    });
+  }
+  renderCalcList();
+
   const calcButton = el("button", { class: "primary" }, ["Calculate & Add"]);
   calcButton.addEventListener("click", () => {
     const calc = CALCULATIONS[picker.value];
@@ -268,6 +302,8 @@ function buildReportTab(): void {
         applyUnit(result, calc);
         state.calculations.push(result);
         calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
+        renderCalcList();
+        animateIn(calcList.lastElementChild);
         avgValues = [];
         renderChips();
       } catch (e) {
@@ -288,9 +324,11 @@ function buildReportTab(): void {
     try {
       const result = calc.run(...values);
       result.sci = sciBox.checked;
-        applyUnit(result, calc);
+      applyUnit(result, calc);
       state.calculations.push(result);
       calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
+      renderCalcList();
+      animateIn(calcList.lastElementChild);
     } catch (e) {
       calcResult.append(banner((e as Error).message, "error"));
     }
@@ -312,7 +350,10 @@ function buildReportTab(): void {
     state.tables.forEach((table, t) => {
       const title = field("Table Title", "Trial Data");
       title.input.value = table.title;
-      title.input.addEventListener("input", () => (table.title = title.input.value));
+      title.input.addEventListener(
+        "input",
+        () => (table.title = title.input.value),
+      );
 
       // Header row: each column name, with an x to delete that column.
       // The x is hidden when only one column is left, so a table can't
@@ -321,10 +362,18 @@ function buildReportTab(): void {
       table.headers.forEach((h, c) => {
         const th = el("th", {}, [cell(h, (v) => (table.headers[c] = v))]);
         if (table.headers.length > 1) {
-          const dropCol = el("button", { class: "chip-x col-x", type: "button", title: "Delete column" }, ["\u00d7"]);
+          const dropCol = el(
+            "button",
+            { class: "chip-x col-x", type: "button", title: "Delete column" },
+            ["\u00d7"],
+          );
           dropCol.addEventListener("click", () => {
             // Every cell in this column: the header plus one per row.
-            const column = [...th.closest("table")!.querySelectorAll(`tr > :nth-child(${c + 1})`)];
+            const column = [
+              ...th
+                .closest("table")!
+                .querySelectorAll(`tr > :nth-child(${c + 1})`),
+            ];
             animateOut(column, () => {
               table.headers.splice(c, 1);
               for (const row of table.rows) row.splice(c, 1);
@@ -342,9 +391,15 @@ function buildReportTab(): void {
       table.rows.forEach((row, r) => {
         const tr = el("tr");
         table.headers.forEach((_, c) => {
-          tr.append(el("td", {}, [cell(row[c] ?? "", (v) => (table.rows[r][c] = v))]));
+          tr.append(
+            el("td", {}, [cell(row[c] ?? "", (v) => (table.rows[r][c] = v))]),
+          );
         });
-        const dropRow = el("button", { class: "chip-x", type: "button", title: "Delete row" }, ["\u00d7"]);
+        const dropRow = el(
+          "button",
+          { class: "chip-x", type: "button", title: "Delete row" },
+          ["\u00d7"],
+        );
         dropRow.addEventListener("click", () => {
           animateOut(tr, () => {
             table.rows.splice(r, 1);
@@ -355,25 +410,39 @@ function buildReportTab(): void {
         body.append(tr);
       });
 
-      const addRow = el("button", { class: "ghost", type: "button" }, ["Add Row"]);
+      const addRow = el("button", { class: "ghost", type: "button" }, [
+        "Add Row",
+      ]);
       addRow.addEventListener("click", () => {
         table.rows.push(table.headers.map(() => ""));
         rendertables();
-        animateIn(tablesbox.children[t]?.querySelector("tbody")?.lastElementChild);
+        animateIn(
+          tablesbox.children[t]?.querySelector("tbody")?.lastElementChild,
+        );
       });
 
       // A new column gets a placeholder name, and every existing row gets
       // an empty cell so the rows stay the same width as the headers.
-      const addCol = el("button", { class: "ghost", type: "button" }, ["Add Column"]);
+      const addCol = el("button", { class: "ghost", type: "button" }, [
+        "Add Column",
+      ]);
       addCol.addEventListener("click", () => {
         table.headers.push(`Column ${table.headers.length + 1}`);
         for (const row of table.rows) row.push("");
         rendertables();
         // The new column is second-to-last: the last one holds the row x's.
-        animateIn(...(tablesbox.children[t]?.querySelectorAll("tr > :nth-last-child(2)") ?? []));
+        animateIn(
+          ...(tablesbox.children[t]?.querySelectorAll(
+            "tr > :nth-last-child(2)",
+          ) ?? []),
+        );
       });
 
-      const dropTable = el("button", { class: "chip-x", type: "button", title: "Delete table" }, ["\u00d7"]);
+      const dropTable = el(
+        "button",
+        { class: "chip-x", type: "button", title: "Delete table" },
+        ["\u00d7"],
+      );
       dropTable.addEventListener("click", () => {
         animateOut(tablesbox.children[t], () => {
           state.tables.splice(t, 1);
@@ -381,7 +450,10 @@ function buildReportTab(): void {
         });
       });
 
-      const grid = el("table", { class: "grid" }, [el("thead", {}, [Headrow]), body]);
+      const grid = el("table", { class: "grid" }, [
+        el("thead", {}, [Headrow]),
+        body,
+      ]);
       tablesbox.append(
         el("div", { class: "table-block" }, [
           dropTable,
@@ -398,7 +470,9 @@ function buildReportTab(): void {
   state.tables.push(firsttable);
   rendertables();
 
-  const addTable = el("button", { class: "primary", type: "button" }, ["Add Table"]);
+  const addTable = el("button", { class: "primary", type: "button" }, [
+    "Add Table",
+  ]);
   addTable.addEventListener("click", () => {
     const fresh = makeDataTable();
     fresh.rows.push(fresh.headers.map(() => ""));
@@ -455,39 +529,77 @@ function buildReportTab(): void {
   // Theme dropdown, built from themeNames() so a new theme in exportDocx.ts
   // shows up here by itself.
   const docTheme = el("select");
-  for (const name of themeNames()) docTheme.append(el("option", { value: name }, [name]));
+  for (const name of themeNames())
+    docTheme.append(el("option", { value: name }, [name]));
 
   // -- custom colour picker (only shown when the theme is "Custom") --------
   // Remember the last theme and colour between launches. Storage can fail
   // (private mode etc.), so every access is wrapped.
   const remembered = (key: string): string | null => {
-    try { return localStorage.getItem(key); } catch { return null; }
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
   };
   const remember = (key: string, value: string): void => {
-    try { localStorage.setItem(key, value); } catch { /* not fatal */ }
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      /* not fatal */
+    }
   };
 
   let customColor = remembered("labfiller.docColor") ?? "E91E63";
   const savedTheme = remembered("labfiller.docTheme");
   // Set BEFORE enhanceSelect below, so the custom button shows the saved name.
-  if (savedTheme && themeNames().includes(savedTheme)) docTheme.value = savedTheme;
+  if (savedTheme && themeNames().includes(savedTheme))
+    docTheme.value = savedTheme;
 
-  const docThemeWrap = el("label", { class: "f" }, [el("span", {}, ["Word theme"]), enhanceSelect(docTheme)]);
+  const docThemeWrap = el("label", { class: "f" }, [
+    el("span", {}, ["Word theme"]),
+    enhanceSelect(docTheme),
+  ]);
 
   const SWATCHES = [
-    "E53935", "E91E63", "8E24AA", "5E35B1", "3949AB", "1E88E5",
-    "00ACC1", "00897B", "43A047", "C0CA33", "FB8C00", "6D4C41",
+    "E53935",
+    "E91E63",
+    "8E24AA",
+    "5E35B1",
+    "3949AB",
+    "1E88E5",
+    "00ACC1",
+    "00897B",
+    "43A047",
+    "C0CA33",
+    "FB8C00",
+    "6D4C41",
   ];
-  const swatchRow = el("div", { class: "swatches", role: "radiogroup", "aria-label": "Pick a colour" });
+  const swatchRow = el("div", {
+    class: "swatches",
+    role: "radiogroup",
+    "aria-label": "Pick a colour",
+  });
   for (const hex of SWATCHES) {
-    const b = el("button", { class: "swatch", type: "button", role: "radio", title: `#${hex}`, "aria-label": `#${hex}` });
+    const b = el("button", {
+      class: "swatch",
+      type: "button",
+      role: "radio",
+      title: `#${hex}`,
+      "aria-label": `#${hex}`,
+    });
     b.style.setProperty("--dot", `#${hex}`);
     b.dataset.hex = hex;
     b.addEventListener("click", () => setColor(hex));
     swatchRow.append(b);
   }
   // "Any colour": the system colour window, for anything not in the row.
-  const anyColor = el("input", { type: "color", class: "swatch-any", title: "Any colour", "aria-label": "Any colour" });
+  const anyColor = el("input", {
+    type: "color",
+    class: "swatch-any",
+    title: "Any colour",
+    "aria-label": "Any colour",
+  });
   anyColor.addEventListener("input", () => setColor(anyColor.value));
   swatchRow.append(anyColor);
 
@@ -507,7 +619,10 @@ function buildReportTab(): void {
   // The preview: the actual colours the document will use.
   const preview = el("div", { class: "doc-preview" });
   function renderPreview(): void {
-    const t = docTheme.value === CUSTOM ? customTheme(customColor) : (THEMES[docTheme.value] ?? THEMES.Teal);
+    const t =
+      docTheme.value === CUSTOM
+        ? customTheme(customColor)
+        : (THEMES[docTheme.value] ?? THEMES.Teal);
     const chip = (label: string, bg: string, fg: string) => {
       const c = el("span", { class: "doc-chip" }, [label]);
       c.style.background = `#${bg}`;
@@ -546,14 +661,19 @@ function buildReportTab(): void {
   function option(text: string): { box: HTMLInputElement; wrap: HTMLElement } {
     const box = el("input", { type: "checkbox" });
     box.checked = true;
-    return { box, wrap: el("label", { class: "check" }, [box, el("span", {}, [text])]) };
+    return {
+      box,
+      wrap: el("label", { class: "check" }, [box, el("span", {}, [text])]),
+    };
   }
   const showFormulas = option("Show formulas");
   const stripedRows = option("Striped table rows");
   const markUnanswered = option("Mark unanswered questions");
 
   const saveStatus = el("div", { class: "fields" });
-  const saveButton = el("button", { class: "primary", type: "button" }, ["Save as Word"]);
+  const saveButton = el("button", { class: "primary", type: "button" }, [
+    "Save as Word",
+  ]);
   saveButton.addEventListener("click", async () => {
     const options: DocxOptions = {
       theme: docTheme.value,
@@ -568,7 +688,9 @@ function buildReportTab(): void {
       const where = await saveDocx(bytes, fileNameFor(state.info.title));
       saveStatus.replaceChildren(where ? banner(`Saved: ${where}`, "ok") : "");
     } catch (err) {
-      saveStatus.replaceChildren(banner(`Couldn't save the Word file: ${String(err)}`, "error"));
+      saveStatus.replaceChildren(
+        banner(`Couldn't save the Word file: ${String(err)}`, "error"),
+      );
     } finally {
       saveButton.disabled = false;
     }
@@ -588,6 +710,8 @@ function buildReportTab(): void {
       calcFields,
       el("div", { class: "actions" }, [calcButton, sciWrap]),
       calcResult,
+      el("h3", { class: "sub" }, ["Added to the report"]),
+      calcList,
     ),
     card(
       "Analysis questions",
@@ -603,46 +727,22 @@ function buildReportTab(): void {
       docThemeWrap,
       customPanel,
       preview,
-      el("div", { class: "actions" }, [showFormulas.wrap, stripedRows.wrap, markUnanswered.wrap]),
+      el("div", { class: "actions" }, [
+        showFormulas.wrap,
+        stripedRows.wrap,
+        markUnanswered.wrap,
+      ]),
       el("div", { class: "actions" }, [saveButton]),
       saveStatus,
     ),
   );
 }
 
-// ---------------------------------------------------------------------------
-// Trigonometry tab
-// ---------------------------------------------------------------------------
-
-function buildTrigTab(): void {
-  const host = document.getElementById("trig-sections");
-  if (!host) return;
-
-  const expr = field("Expression", "sin(30) + 2^3");
-  const out = el("div", { class: "banner todo" }, [
-    "Waiting on src/backend/calculator.ts. Read the comment at the top of that file before you start — it explains why this must not use eval().",
-  ]);
-
-  host.append(
-    card(
-      "Trigonometry & scientific maths",
-      "Separate from the report, same as before — nothing here feeds into it.",
-      expr.wrap,
-      el("div", {}, [el("button", { class: "primary" }, ["Solve"])]),
-      out,
-    ),
-  );
-}
-
-// ---------------------------------------------------------------------------
-
 function main(): void {
   const version = document.getElementById("version");
-  if (version) version.textContent = `v${VERSION} — rewrite in progress`;
+  if (version) version.textContent = `v${VERSION}`;
   setUpTheme();
-  setUpTabs();
-  buildReportTab();
-  buildTrigTab();
+  buildReportScreen();
 }
 
 main();

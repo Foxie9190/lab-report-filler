@@ -1,6 +1,8 @@
-name: Build app
+name: Build app (version 1, Python)
 
-# Runs whenever you push a tag that starts with "v", like v1.0.0.
+# Runs whenever you push a tag that starts with "py-v", like py-v1.2.1.
+# This is the PYTHON app (version 1). The TypeScript + Tauri app (version
+# 2) has its own workflow, tauri.yml, on plain "v" tags.
 # Builds a Mac .app and a Windows .exe on GitHub's own machines, zips
 # them, and attaches both to a GitHub Release with that tag.
 #
@@ -10,11 +12,11 @@ name: Build app
 #
 # To ship a version:
 #   1. bump VERSION in backend/updates.py and version in pyproject.toml
-#   2. git tag v1.1.0 && git push origin v1.1.0
+#   2. git tag py-v1.2.1 && git push origin py-v1.2.1
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["py-v*"]
   workflow_dispatch:   # also lets you press "Run workflow" on GitHub by hand
 
 jobs:
@@ -101,7 +103,7 @@ jobs:
     needs: [macos, windows, linux]
     runs-on: ubuntu-latest
     # always() so a skipped build job doesn't skip the release with it.
-    if: always() && startsWith(github.ref, 'refs/tags/v')
+    if: always() && startsWith(github.ref, 'refs/tags/py-v')
       && needs.macos.result == 'success'
       && needs.windows.result != 'failure'
       && needs.linux.result != 'failure'

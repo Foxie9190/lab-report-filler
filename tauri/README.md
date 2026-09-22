@@ -1,8 +1,13 @@
-# Tauri rewrite (in progress)
+# Lab Report Filler 2.x (TypeScript + Tauri)
 
-The TypeScript + Tauri v2 version of the app. The working Flet/Python app
-is still in the folder above and still builds — nothing here replaces it
-until this one is actually better.
+The current version of the app. The original Flet/Python app is still in
+the folder above and still builds; it stays as version 1.2.0 for people on
+Windows and Linux, and this is where new work happens.
+
+Everything in `src/backend` is Landon's — the chemistry (`chem.ts`), the
+Markdown report (`report.ts`), the shared types (`models.ts`) and the Word
+export (`exportDocx.ts`). Everything else is the interface, and the two
+only talk through the types in `models.ts`.
 
 ## Run it
 

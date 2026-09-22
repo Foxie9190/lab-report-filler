@@ -9,7 +9,49 @@ touches the internet is a quick check on launch for a newer version — if
 there is one, a strip at the top offers a download link. That's all it
 does; it never installs anything on its own.
 
-## Install
+## Which version do you want?
+
+**Version 2 (current)** — the app rewritten in TypeScript + Tauri. Same
+five report sections, plus multiple data tables, a running list of your
+calculations, unit conversion, light and dark themes, accent colours, and
+a Word export with six themes or any colour you pick. Mac, Windows and
+Linux.
+
+**Version 1.2.0 (Python / Flet)** — the original, still available for
+**Mac, Windows and Linux**. Download it from the
+[v1.2.0 release](https://github.com/Foxie9190/lab-report-filler/releases/tag/v1.2.0),
+and its code lives on in this repo (`main.py`, `ui/`, `backend/`) if you
+want to run or build it yourself:
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+Both write the same kind of lab report. Version 2 is the one getting new
+features.
+
+## Install — version 2
+
+Go to the
+[Releases page](https://github.com/Foxie9190/lab-report-filler/releases)
+and download the file for your computer from **Assets**.
+
+**macOS** — the `.dmg`. Open it, drag **Lab Report Filler** into your
+Applications folder. **The first time only:** right-click the app and
+choose **Open**, then **Open** again. The app isn't signed with an Apple
+developer certificate, so a plain double-click gets refused. One file
+covers both Apple Silicon and Intel Macs.
+
+**Windows** — the `.exe` installer (or the `.msi` if you prefer). Windows
+shows a blue **"Windows protected your PC"** box: click **More info**,
+then **Run anyway**. Same reason — no paid signing certificate.
+
+**Linux** — the `.AppImage` runs anywhere: `chmod +x` it and double-click.
+On Debian or Ubuntu the `.deb` installs it properly:
+`sudo dpkg -i lab-report-filler_2.0.0_amd64.deb`.
+
+## Install — version 1 (Mac, Windows, Linux)
 
 Go to the
 [Releases page](https://github.com/Foxie9190/lab-report-filler/releases)
@@ -88,8 +130,8 @@ reads like you worked it out by hand.
 
 ## Using it
 
-The app has two tabs. **Lab report** is the form below.
-**Trigonometry** is a scratch calculator — see the next section.
+Version 2 is one screen: the form below. Version 1 has a second tab with
+a scratch calculator, described further down.
 
 Work top to bottom. Nothing is required — any section you leave blank is
 simply left out of the report.
@@ -121,10 +163,27 @@ calculate. That way you can check every value before it goes in.
 *Add question* for more.
 
 **Your report** — hit *Generate report* to see a preview, then
-**Save as Word** to get a `.docx`. There's also *Save as .md* if you want
+**Save as Word** to get a `.docx`. Version 1 also has *Save as .md* for
 plain text.
 
-## Trigonometry tab
+## New in version 2
+
+- One screen instead of tabs — the Trigonometry calculator was removed
+- Light and dark themes, with an animated sun/moon switch, and five accent
+  colours for the app itself
+- A running list of every calculation you've added, each with an × to
+  remove it
+- Rows, tables and questions slide in and fade out instead of jumping
+- Word export: the six themes as before, plus a **Custom** option where
+  you pick any colour and the rest is worked out from it — and a check
+  that keeps pale colours readable
+- Blank table rows you never filled in are left out of the report
+- Written in TypeScript with Tauri v2, so the app is a few megabytes
+  instead of a few hundred
+
+## Trigonometry tab (version 1 only)
+
+Version 2 does not have this — it is one screen, the lab report form.
 
 A scratch calculator that has nothing to do with your report — work
 something out without it ending up in what you turn in.
@@ -205,6 +264,7 @@ Pick a look from the **Word theme** dropdown:
 | Forest | Green. |
 | Plum | Purple. |
 | Slate (print-friendly) | Grey. Costs the least ink. |
+| Custom (version 2) | Pick any colour. The title band, table header, striped rows and calculation boxes are all worked out from it, and a pale colour gets darkened until the text on it is still readable. |
 
 Three toggles sit next to it:
 
@@ -216,10 +276,17 @@ Three toggles sit next to it:
 
 ## Updating
 
-When a new version is out, the app tells you at the top the next time
-you open it. Click **Download**, grab the zip from the Releases page,
-and replace the old app with the new one — same as installing it the
-first time. Your reports aren't stored in the app, so nothing is lost.
+Version 1 tells you at the top when a new version is out. Click
+**Download**, grab the file from the Releases page, and replace the old
+app with the new one — same as installing it the first time. Your reports
+aren't stored in the app, so nothing is lost.
+
+Version 2 doesn't check for updates yet; watch the Releases page.
+
+Version 1 users get told when 2.0.0 is out, because the check only looks
+for the newest release. It is a real newer version — just a different
+build, so install it like a fresh app rather than replacing the old one
+in place.
 
 ## Troubleshooting
 
@@ -253,15 +320,51 @@ its Dock icon → Quit, or ⌘Q) and open it again.
 
 ## Status
 
-Working end to end. Two calculations — moles from grams and molarity —
-are still being finished and show a "not built yet" notice for now.
+Version 2.0.0 works end to end: all six calculations, multiple data
+tables, the Markdown preview and the Word export, on Mac, Windows and
+Linux.
+
+Version 1.2.0 still works and is still downloadable if you want it.
 
 ---
 
 ## For developers
 
-The app is Python, built with [Flet](https://flet.dev). If you want to
-run it from source or change it:
+### Version 2 — TypeScript + Tauri
+
+```bash
+git clone https://github.com/Foxie9190/lab-report-filler.git
+cd lab-report-filler/tauri
+npm install
+npm run dev          # the UI in a browser tab, instant reload
+npm run tauri dev    # the real desktop window
+npm run tauri build  # a .app and .dmg in src-tauri/target/release/bundle
+npm test             # the backend tests
+```
+
+Layout:
+
+```
+tauri/
+  index.html            the page shell
+  src/
+    main.ts             the form and everything you click
+    ui.ts               el(), card(), field(), the custom dropdown, animations
+    theme.ts            dark / light and the accent colours
+    saveFile.ts         the Save dialog and writing the file
+    styles.css          all the styling, colours as CSS variables
+    backend/
+      models.ts         the shared data shapes
+      chem.ts           the chemistry math
+      report.ts         builds the Markdown preview
+      exportDocx.ts     builds the Word document and holds the themes
+  src-tauri/            the Rust side: window, plugins, permissions
+  test.ts               the backend tests
+```
+
+### Version 1 — Python + Flet
+
+The original app, built with [Flet](https://flet.dev):
 
 ```bash
 git clone https://github.com/Foxie9190/lab-report-filler.git
@@ -309,18 +412,35 @@ automatically.
 
 ### Releasing a version
 
-Bump `VERSION` in `backend/updates.py`, commit, then tag it with the
-same number and push the tag:
+Two apps, two workflows, two tag prefixes — so tagging one never
+rebuilds the other.
+
+**Version 2 (Tauri)** — bump the number in all four places
+(`tauri/package.json`, `tauri/src-tauri/Cargo.toml`,
+`tauri/src-tauri/tauri.conf.json`, and `VERSION` in `tauri/src/main.ts`),
+commit, then:
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v2.0.1
+git push origin v2.0.1
 ```
 
-GitHub Actions builds the Mac and Windows apps and attaches them to a
-Release. Apps already out in the world will see the new tag and show
-the update strip. The version and the tag must match — the app compares
-them to decide whether to show it.
+`.github/workflows/tauri.yml` builds the Mac, Windows and Linux
+installers and puts them in a **draft** Release. Check it over on GitHub,
+then press Publish.
+
+**Version 1 (Python)** — bump `VERSION` in `backend/updates.py` and the
+version in `pyproject.toml`, commit, then:
+
+```bash
+git tag py-v1.2.1
+git push origin py-v1.2.1
+```
+
+`.github/workflows/build.yml` builds the three Python bundles. Version 1
+apps already out there compare their own `VERSION` with the newest
+release tag to decide whether to show the update strip, so the numbers
+have to match.
 
 ### Building by hand
 
