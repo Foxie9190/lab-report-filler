@@ -35,6 +35,13 @@ jobs:
             args: ""
 
     runs-on: ${{ matrix.platform }}
+
+    # Creating the Release needs write access to the repo. Without this the
+    # build succeeds and the last step fails with "Resource not accessible
+    # by integration", because the token GitHub hands the job is read-only.
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
 
