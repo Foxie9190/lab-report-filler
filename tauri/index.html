@@ -10,6 +10,7 @@
     <header class="appbar">
       <h1>Lab Report Filler</h1>
       <span class="version" id="version"></span>
+      <span class="save-state" id="save-state"></span>
       <span class="spacer"></span>
       <div id="accent-picker" class="accents" role="radiogroup" aria-label="Accent colour"></div>
       <button id="theme-toggle" type="button" aria-label="Switch to light theme">
@@ -24,9 +25,18 @@
       </button>
     </header>
 
+    <nav class="tabbar" role="tablist">
+      <button class="tab" role="tab" data-tab="report" aria-selected="true">Lab report</button>
+      <button class="tab" role="tab" data-tab="labs" aria-selected="false">My labs</button>
+    </nav>
+
     <main>
-      <section class="panel">
+      <section class="panel" id="panel-report" role="tabpanel">
         <div class="wrap" id="report-sections"></div>
+      </section>
+
+      <section class="panel" id="panel-labs" role="tabpanel" hidden>
+        <div class="wrap" id="labs-sections"></div>
       </section>
     </main>
 

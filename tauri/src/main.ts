@@ -38,11 +38,85 @@ import {
 } from "./backend/exportDocx";
 import type { DocxOptions } from "./backend/exportDocx";
 import { fileNameFor, saveDocx } from "./saveFile";
+import {
+  deleteLab,
+  duplicateLab,
+  lastLabId,
+  listLabs,
+  loadLab,
+  rememberLastLab,
+  saveLab,
+} from "./store";
+import type { LabSummary } from "./store";
 
 const VERSION = "2.0.1";
 
 /** Everything the person has typed. One object, same shape as the report. */
 const state: LabReport = makeLabReport();
+
+/**
+ * Which saved lab is open, or null for one that has never been saved.
+ * The first autosave fills this in, and every save after that updates the
+ * same row instead of piling up copies.
+ */
+let currentLabId: number | null = null;
+
+// ---------------------------------------------------------------------------
+// Autosave
+// ---------------------------------------------------------------------------
+/*
+ * Saving on every keystroke would mean a database write per letter. Instead
+ * every change resets a short timer, and the save happens once typing stops.
+ * That's called debouncing, and it's the same trick the report preview will
+ * use later.
+ */
+
+let saveTimer: number | undefined;
+
+function setSaveState(text: string): void {
+  const label = document.getElementById("save-state");
+  if (label) label.textContent = text;
+}
+
+async function saveNow(): Promise<void> {
+  try {
+    currentLabId = await saveLab(state, currentLabId);
+    rememberLastLab(currentLabId);
+    setSaveState("Saved");
+  } catch (err) {
+    // A failed save must not break typing, so it only reports itself.
+    setSaveState("Not saved");
+    console.error("save failed", err);
+  }
+}
+
+/** Call after anything that changes `state`. */
+function markDirty(): void {
+  setSaveState("Saving\u2026");
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => void saveNow(), 600);
+}
+
+/**
+ * Put a report on screen. Passing null starts a blank one.
+ *
+ * `state` is replaced field by field rather than swapped for a new object,
+ * because every input listener in the form already points at this exact
+ * object. Rebuilding the screen afterwards refills the form from it.
+ */
+function openLab(report: LabReport | null, id: number | null): void {
+  const fresh = report ?? makeLabReport();
+  state.info = fresh.info;
+  state.content = fresh.content;
+  state.tables = fresh.tables;
+  state.calculations = fresh.calculations;
+  state.analysis = fresh.analysis;
+  currentLabId = id;
+  rememberLastLab(id);
+  buildReportScreen();
+  setSaveState(id === null ? "New lab" : "Saved");
+  showTab("report");
+}
 
 // ---------------------------------------------------------------------------
 // The report screen
@@ -51,6 +125,8 @@ const state: LabReport = makeLabReport();
 function buildReportScreen(): void {
   const host = document.getElementById("report-sections");
   if (!host) return;
+  // This function can run again when another lab is opened, so start clean.
+  host.replaceChildren();
 
   // -- Lab info
   const title = field(
@@ -62,6 +138,15 @@ function buildReportScreen(): void {
   const teacher = field("Teacher");
   const date = field("Date", "", "date");
   const partners = field("Lab partners", "comma separated");
+
+  // Fill the boxes from whatever is in state — blank for a new lab, the
+  // saved values for one that was just opened.
+  title.input.value = state.info.title;
+  student.input.value = state.info.studentName;
+  course.input.value = state.info.course;
+  teacher.input.value = state.info.teacher;
+  date.input.value = state.info.date;
+  partners.input.value = state.info.partners;
 
   title.input.addEventListener(
     "input",
@@ -260,23 +345,32 @@ function buildReportScreen(): void {
   function renderCalcList(): void {
     calcList.replaceChildren();
     if (state.calculations.length === 0) {
-      calcList.append(el("span", { class: "chips-empty" }, ["Nothing added yet."]));
+      calcList.append(
+        el("span", { class: "chips-empty" }, ["Nothing added yet."]),
+      );
       return;
     }
     state.calculations.forEach((result, i) => {
-      const x = el("button", { class: "chip-x", type: "button", title: "Remove this calculation" }, ["\u00d7"]);
+      const x = el(
+        "button",
+        { class: "chip-x", type: "button", title: "Remove this calculation" },
+        ["\u00d7"],
+      );
       const parts: Node[] = [
         x,
         el("div", { class: "calc-name" }, [result.name]),
         el("div", { class: "calc-answer" }, [pretty(result)]),
       ];
-      if (result.formula) parts.push(el("div", { class: "calc-formula" }, [result.formula]));
-      if (result.work) parts.push(el("div", { class: "calc-work" }, [result.work]));
+      if (result.formula)
+        parts.push(el("div", { class: "calc-formula" }, [result.formula]));
+      if (result.work)
+        parts.push(el("div", { class: "calc-work" }, [result.work]));
       const box = el("div", { class: "calc-row" }, parts);
       x.addEventListener("click", () => {
         animateOut(box, () => {
           state.calculations.splice(i, 1);
           renderCalcList();
+          markDirty();
         });
       });
       calcList.append(box);
@@ -304,6 +398,7 @@ function buildReportScreen(): void {
         calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
         renderCalcList();
         animateIn(calcList.lastElementChild);
+        markDirty();
         avgValues = [];
         renderChips();
       } catch (e) {
@@ -329,6 +424,7 @@ function buildReportScreen(): void {
       calcResult.append(banner(`${result.name} = ${pretty(result)}`, "ok"));
       renderCalcList();
       animateIn(calcList.lastElementChild);
+      markDirty();
     } catch (e) {
       calcResult.append(banner((e as Error).message, "error"));
     }
@@ -378,6 +474,7 @@ function buildReportScreen(): void {
               table.headers.splice(c, 1);
               for (const row of table.rows) row.splice(c, 1);
               rendertables();
+              markDirty();
             });
           });
           th.append(dropCol);
@@ -404,6 +501,7 @@ function buildReportScreen(): void {
           animateOut(tr, () => {
             table.rows.splice(r, 1);
             rendertables();
+            markDirty();
           });
         });
         tr.append(el("td", { class: "row-x-cell" }, [dropRow]));
@@ -416,6 +514,7 @@ function buildReportScreen(): void {
       addRow.addEventListener("click", () => {
         table.rows.push(table.headers.map(() => ""));
         rendertables();
+        markDirty();
         animateIn(
           tablesbox.children[t]?.querySelector("tbody")?.lastElementChild,
         );
@@ -430,6 +529,7 @@ function buildReportScreen(): void {
         table.headers.push(`Column ${table.headers.length + 1}`);
         for (const row of table.rows) row.push("");
         rendertables();
+        markDirty();
         // The new column is second-to-last: the last one holds the row x's.
         animateIn(
           ...(tablesbox.children[t]?.querySelectorAll(
@@ -447,6 +547,7 @@ function buildReportScreen(): void {
         animateOut(tablesbox.children[t], () => {
           state.tables.splice(t, 1);
           rendertables();
+          markDirty();
         });
       });
 
@@ -465,9 +566,12 @@ function buildReportScreen(): void {
     });
   }
 
-  const firsttable = makeDataTable();
-  firsttable.rows.push(firsttable.headers.map(() => ""));
-  state.tables.push(firsttable);
+  // A brand new lab starts with one empty table; an opened one keeps its own.
+  if (state.tables.length === 0) {
+    const firsttable = makeDataTable();
+    firsttable.rows.push(firsttable.headers.map(() => ""));
+    state.tables.push(firsttable);
+  }
   rendertables();
 
   const addTable = el("button", { class: "primary", type: "button" }, [
@@ -478,6 +582,7 @@ function buildReportScreen(): void {
     fresh.rows.push(fresh.headers.map(() => ""));
     state.tables.push(fresh);
     rendertables();
+    markDirty();
     animateIn(tablesbox.lastElementChild);
   });
 
@@ -501,6 +606,7 @@ function buildReportScreen(): void {
         animateOut(box, () => {
           state.analysis.splice(i, 1);
           renderQuestions();
+          markDirty();
         });
       });
       qaList.append(box);
@@ -514,9 +620,12 @@ function buildReportScreen(): void {
     state.analysis.push({ question: "", answer: "" });
     renderQuestions();
     animateIn(qaList.lastElementChild);
+    markDirty();
   });
 
-  state.analysis.push({ question: "", answer: "" });
+  if (state.analysis.length === 0) {
+    state.analysis.push({ question: "", answer: "" });
+  }
   renderQuestions();
 
   const reportPriview = el("pre", { class: "preview" });
@@ -738,11 +847,185 @@ function buildReportScreen(): void {
   );
 }
 
-function main(): void {
+// ---------------------------------------------------------------------------
+// My labs
+// ---------------------------------------------------------------------------
+
+/** "Today", "Yesterday", or a date. */
+function whenText(raw: string): string {
+  // SQLite's datetime('now') gives "2026-09-25 13:04:22" in UTC, which not
+  // every browser parses. Turned into a proper ISO string first.
+  const iso = raw.includes("T") ? raw : `${raw.replace(" ", "T")}Z`;
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return raw;
+  const day = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((day(new Date()) - day(when)) / 86_400_000);
+  const time = when.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Yesterday, ${time}`;
+  return when.toLocaleDateString();
+}
+
+/** One row of the list: name, when it was last touched, and the buttons. */
+function labRow(lab: LabSummary, refresh: () => void): HTMLElement {
+  const open = el("button", { class: "ghost", type: "button" }, ["Open"]);
+  const copy = el("button", { class: "ghost", type: "button" }, ["Duplicate"]);
+  const drop = el(
+    "button",
+    { class: "chip-x", type: "button", title: "Delete this lab" },
+    ["\u00d7"],
+  );
+  const buttons = el("div", { class: "actions" }, [open, copy, drop]);
+
+  const meta = [lab.course.trim(), whenText(lab.updatedAt)]
+    .filter((s) => s !== "")
+    .join("  \u00b7  ");
+  const row = el("div", { class: "lab-row" }, [
+    el("div", {}, [
+      el("div", { class: "lab-name" }, [lab.title.trim() || "Untitled lab"]),
+      el("div", { class: "lab-meta" }, [meta]),
+    ]),
+    buttons,
+  ]);
+  if (lab.id === currentLabId) row.classList.add("current");
+
+  open.addEventListener("click", async () => {
+    const report = await loadLab(lab.id);
+    if (report === null) {
+      refresh(); // it is gone — the list is out of date
+      return;
+    }
+    openLab(report, lab.id);
+  });
+
+  copy.addEventListener("click", async () => {
+    await duplicateLab(lab.id);
+    refresh();
+  });
+
+  // Deleting is permanent, so it asks first — in the row itself rather than
+  // a system dialog, which would block the whole window.
+  drop.addEventListener("click", () => {
+    const yes = el("button", { class: "ghost danger", type: "button" }, [
+      "Delete",
+    ]);
+    const no = el("button", { class: "ghost", type: "button" }, ["Keep"]);
+    buttons.replaceChildren(
+      el("span", { class: "lab-meta" }, ["Delete for good?"]),
+      yes,
+      no,
+    );
+    no.addEventListener("click", () =>
+      buttons.replaceChildren(open, copy, drop),
+    );
+    yes.addEventListener("click", async () => {
+      await deleteLab(lab.id);
+      // If the open lab was the one deleted, the form is now an unsaved copy.
+      if (lab.id === currentLabId) {
+        currentLabId = null;
+        rememberLastLab(null);
+        setSaveState("New lab");
+      }
+      animateOut(row, refresh);
+    });
+  });
+
+  return row;
+}
+
+function buildLabsScreen(): void {
+  const host = document.getElementById("labs-sections");
+  if (!host) return;
+
+  const list = el("div", { class: "fields" });
+  const fresh = el("button", { class: "primary", type: "button" }, ["New lab"]);
+  fresh.addEventListener("click", () => openLab(null, null));
+
+  async function refresh(): Promise<void> {
+    try {
+      const labs = await listLabs();
+      if (labs.length === 0) {
+        list.replaceChildren(
+          el("span", { class: "chips-empty" }, [
+            "No saved labs yet. Anything you type on the Lab report tab saves itself.",
+          ]),
+        );
+        return;
+      }
+      list.replaceChildren(
+        ...labs.map((lab) => labRow(lab, () => void refresh())),
+      );
+    } catch (err) {
+      list.replaceChildren(
+        banner(`Couldn't read the saved labs: ${String(err)}`, "error"),
+      );
+    }
+  }
+
+  host.replaceChildren(
+    card(
+      "My labs",
+      "Everything you have saved. They save themselves as you type.",
+      el("div", { class: "actions" }, [fresh]),
+      list,
+    ),
+  );
+  void refresh();
+}
+
+// ---------------------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------------------
+
+function showTab(name: string): void {
+  for (const tab of document.querySelectorAll<HTMLButtonElement>(".tab")) {
+    const on = tab.dataset.tab === name;
+    tab.setAttribute("aria-selected", String(on));
+    const panel = document.getElementById(`panel-${tab.dataset.tab}`);
+    if (panel) panel.hidden = !on;
+  }
+  // The list is rebuilt on every visit, so it can't show a stale lab.
+  if (name === "labs") buildLabsScreen();
+}
+
+function setUpTabs(): void {
+  for (const tab of document.querySelectorAll<HTMLButtonElement>(".tab")) {
+    tab.addEventListener("click", () => showTab(tab.dataset.tab ?? "report"));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Startup
+// ---------------------------------------------------------------------------
+
+async function main(): Promise<void> {
   const version = document.getElementById("version");
   if (version) version.textContent = `v${VERSION}`;
   setUpTheme();
-  buildReportScreen();
+  setUpTabs();
+
+  // Reopen whatever was open last. If that lab was deleted elsewhere, or
+  // this is a first run, start a blank one instead.
+  const last = lastLabId();
+  let report: LabReport | null = null;
+  if (last !== null) {
+    try {
+      report = await loadLab(last);
+    } catch (err) {
+      console.error("could not reopen the last lab", err);
+    }
+  }
+  openLab(report, report === null ? null : last);
+
+  // One listener on the whole form, rather than one per box: typing anywhere
+  // inside it bubbles up to here.
+  const host = document.getElementById("report-sections");
+  host?.addEventListener("input", markDirty);
+  host?.addEventListener("change", markDirty);
 }
 
-main();
+void main();
