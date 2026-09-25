@@ -84,5 +84,8 @@ jobs:
           # Only tag pushes make a Release; a manual run just builds.
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
           releaseName: "Lab Report Filler ${{ github.ref_name }}"
-          releaseDraft: true
+          # false, so a finished build is visible straight away. A draft is
+          # only listed on the Releases page and only to you, which is easy
+          # to miss. Set it back to true if you ever want to check first.
+          releaseDraft: false
           prerelease: false
