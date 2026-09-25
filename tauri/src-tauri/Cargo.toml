@@ -1,6 +1,6 @@
 [package]
 name = "lab-report-filler"
-version = "2.0.0"
+version = "2.0.1"
 description = "Write up a chemistry lab report and export it to Word."
 authors = ["Landon Urquhart"]
 edition = "2021"

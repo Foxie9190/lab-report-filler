@@ -39,7 +39,7 @@ import {
 import type { DocxOptions } from "./backend/exportDocx";
 import { fileNameFor, saveDocx } from "./saveFile";
 
-const VERSION = "2.0.0";
+const VERSION = "2.0.1";
 
 /** Everything the person has typed. One object, same shape as the report. */
 const state: LabReport = makeLabReport();
