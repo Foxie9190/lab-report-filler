@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# `tauri icon` also generates phone icons. There's no mobile build, so
+# they'd just be dead weight in the repo. Delete these two lines if a
+# mobile build ever happens.
+src-tauri/icons/android/
+src-tauri/icons/ios/
