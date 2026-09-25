@@ -49,7 +49,7 @@ import {
 } from "./store";
 import type { LabSummary } from "./store";
 
-const VERSION = "2.0.1";
+const VERSION = "2.1.0";
 
 /** Everything the person has typed. One object, same shape as the report. */
 const state: LabReport = makeLabReport();
