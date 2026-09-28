@@ -27,7 +27,7 @@ jobs:
           - platform: macos-latest
             target: universal-apple-darwin
             args: "--target universal-apple-darwin"
-          - platform: ubuntu-22.04
+          - platform: ubuntu-latest
             target: ""
             args: ""
           - platform: windows-latest
@@ -48,10 +48,13 @@ jobs:
       # Tauri draws its window with the system webview. On Linux that's
       # WebKitGTK, which isn't installed on a bare runner.
       - name: Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: startsWith(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+          # libayatana-appindicator3-dev, not libappindicator3-dev: the older
+          # name was dropped in newer Ubuntu images, and a missing package
+          # fails the whole job before anything is built.
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
             librsvg2-dev patchelf build-essential curl wget file libxdo-dev libssl-dev
 
       - uses: actions/setup-node@v4
