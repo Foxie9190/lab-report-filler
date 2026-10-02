@@ -1050,3 +1050,62 @@ body.dragging { cursor: col-resize; user-select: none; }
   .split[data-preview="on"] .form-col { display: none; }
   .splitter { display: none; }
 }
+
+/* -- the update strip ----------------------------------------------------- */
+/*
+ * Sits between the header and the tabs: noticeable without being in the way
+ * of anything you click. Uses the "todo" colours rather than red — a new
+ * version is news, not a problem.
+ */
+.update-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--todo-bg);
+  color: var(--todo-fg);
+  font-size: 13px;
+  flex: 0 0 auto;
+}
+.update-bar[hidden] { display: none; }
+.update-text { flex: 1 1 auto; }
+.update-text strong { font-weight: 700; }
+
+.update-get {
+  background: var(--todo-fg);
+  color: var(--todo-bg);
+  border: none;
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 700;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.update-get:hover { transform: translateY(-1px); }
+.update-get:active { transform: translateY(1px); }
+
+.update-x {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.update-x:hover { opacity: 1; background: rgba(0, 0, 0, 0.12); }
+.update-get:focus-visible,
+.update-x:focus-visible { outline: 2px solid var(--todo-fg); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .update-get { transition: none; }
+  .update-get:hover, .update-get:active { transform: none; }
+}

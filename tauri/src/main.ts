@@ -51,7 +51,8 @@ import {
 } from "./store";
 import type { LabSummary } from "./store";
 
-const VERSION = "2.2.0";
+import { VERSION } from "./backend/updates";
+import { setUpUpdateBar } from "./updateBar";
 
 /** Everything the person has typed. One object, same shape as the report. */
 const state: LabReport = makeLabReport();
@@ -222,14 +223,17 @@ function buildReportScreen(): void {
   );
 
   host.append(
-    section("header", card(
-      "Lab info",
-      "The header of the report.",
-      title.wrap,
-      row(student.wrap, course.wrap),
-      row(teacher.wrap, date.wrap),
-      partners.wrap,
-    )),
+    section(
+      "header",
+      card(
+        "Lab info",
+        "The header of the report.",
+        title.wrap,
+        row(student.wrap, course.wrap),
+        row(teacher.wrap, date.wrap),
+        partners.wrap,
+      ),
+    ),
   );
 
   // -- Materials & safety
@@ -245,12 +249,15 @@ function buildReportScreen(): void {
   );
 
   host.append(
-    section("materials", card(
-      "Materials & safety",
-      "One item per line — they become bullet points.",
-      materials.wrap,
-      safety.wrap,
-    )),
+    section(
+      "materials",
+      card(
+        "Materials & safety",
+        "One item per line — they become bullet points.",
+        materials.wrap,
+        safety.wrap,
+      ),
+    ),
   );
   // Calculaton options
   const picker = el("select");
@@ -867,28 +874,37 @@ function buildReportScreen(): void {
   });
   // -- The sections still waiting on the backend
   host.append(
-    section("data", card(
-      "Data tables",
-      "Click on a header to rename it",
-      tablesbox,
-      el("div", { class: "actions" }, [addTable]),
-    )),
-    section("calculations", card(
-      "Calculations",
-      null,
-      row(pickerWrap, unitWrap),
-      calcFields,
-      el("div", { class: "actions" }, [calcButton, sciWrap]),
-      calcResult,
-      el("h3", { class: "sub" }, ["Added to the report"]),
-      calcList,
-    )),
-    section("analysis", card(
-      "Analysis questions",
-      "Copy Each Question from the lab, then answer it",
-      qaList,
-      el("div", { class: "actions" }, [addQuestion]),
-    )),
+    section(
+      "data",
+      card(
+        "Data tables",
+        "Click on a header to rename it",
+        tablesbox,
+        el("div", { class: "actions" }, [addTable]),
+      ),
+    ),
+    section(
+      "calculations",
+      card(
+        "Calculations",
+        null,
+        row(pickerWrap, unitWrap),
+        calcFields,
+        el("div", { class: "actions" }, [calcButton, sciWrap]),
+        calcResult,
+        el("h3", { class: "sub" }, ["Added to the report"]),
+        calcList,
+      ),
+    ),
+    section(
+      "analysis",
+      card(
+        "Analysis questions",
+        "Copy Each Question from the lab, then answer it",
+        qaList,
+        el("div", { class: "actions" }, [addQuestion]),
+      ),
+    ),
     card(
       "Your report",
       "The page on the right is what saves. Pick its look, then save it as Word.",
@@ -1094,11 +1110,17 @@ async function main(): Promise<void> {
   host?.addEventListener("input", markDirty);
   host?.addEventListener("change", markDirty);
 
+  // Last, and deliberately: the app is already usable by now, so a slow
+  // network can only delay the strip, never the window.
+  setUpUpdateBar();
+
   // Clicking into a field brings that part of the page into view, so the
   // thing you are typing is the thing you are watching. It only scrolls when
   // the section is off screen, so it never fights you.
   host?.addEventListener("focusin", (event) => {
-    const card = (event.target as HTMLElement).closest<HTMLElement>("[data-section]");
+    const card = (event.target as HTMLElement).closest<HTMLElement>(
+      "[data-section]",
+    );
     if (card?.dataset.section) preview?.reveal(card.dataset.section);
   });
 }

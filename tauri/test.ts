@@ -18,6 +18,7 @@ import type { Block } from "./src/backend/models";
 import { pretty } from "./src/backend/models";
 import type { CalcResult, LabReport } from "./src/backend/models";
 import { makeLabReport } from "./src/backend/models";
+import { isNewer } from "./src/backend/updates";
 
 let passed = 0;
 let failed = 0;
@@ -352,6 +353,30 @@ expectBlocks("an answer keeps its own lines", (() => {
   return JSON.stringify(q.answer) === JSON.stringify(["First line", "Second line"])
     ? null : `got ${JSON.stringify(q.answer)}`;
 });
+
+// ---------------------------------------------------------------------------
+// Update check
+// ---------------------------------------------------------------------------
+
+/** Expect a plain true/false answer. */
+function expectTrue(label: string, got: boolean, want: boolean): void {
+  if (got === want) {
+    console.log(`  pass   ${label.padEnd(24)} ${got}`);
+    passed++;
+  } else {
+    console.log(`  FAIL   ${label.padEnd(24)} got ${got}  want ${want}`);
+    failed++;
+  }
+}
+
+// The one that matters: as TEXT "2.10.0" sorts before "2.9.0", so a text
+// compare would never offer the update.
+expectTrue("2.10.0 beats 2.9.0", isNewer("v2.10.0", "2.9.0"), true);
+expectTrue("same version", isNewer("v2.2.0", "2.2.0"), false);
+expectTrue("older version", isNewer("v2.1.0", "2.2.0"), false);
+expectTrue("new major", isNewer("v3.0.0", "2.2.0"), true);
+expectTrue("missing parts count as 0", isNewer("v2.2", "2.2.0"), false);
+expectTrue("junk tag is not newer", isNewer("py-v1.2.1", "2.2.0"), false);
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);
