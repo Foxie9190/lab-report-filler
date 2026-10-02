@@ -1,8 +1,8 @@
 # Lab Report Filler
 
-A desktop app for writing chemistry lab reports. Fill in the form, let it
-do the math and show the work, and save a finished Word document you can
-turn in.
+A desktop app for writing chemistry lab reports. Fill in the form, watch
+the document build itself on the page beside you, let it do the math and
+show the work, and save a finished Word document you can turn in.
 
 Mac, Windows and Linux. No account, no sign-in. Nothing you type ever
 leaves your computer.
@@ -81,12 +81,37 @@ scientific notation and a density as plain `8 g/mL`.
 **Analysis questions** — a question box and an answer box per row. *Add
 Question* for more.
 
-**Your report** — *Generate Report* shows a preview, then **Save as
-Word** writes the `.docx` wherever you choose.
+**Your report** — pick the look, then **Save as Word** writes the `.docx`
+wherever you choose. There's no *Generate* button any more: the page on
+the right already is the report.
 
 ![The report card in light mode](docs/app-report-light.png)
 
+## The page beside the form
+
+The right-hand half of the report tab is the document itself, on a real
+Letter page with one-inch margins, in the colours and font the Word file
+uses. It redraws as you type — headings appear as you fill a section in,
+a row you add turns up in the table, a calculation lands in its box.
+
+- **Preview** in the tab bar hides and shows it. Drag the line between
+  the two halves to give either side more room.
+- **Fit** sizes the page to the pane; **−** and **+** zoom by hand.
+- Dashed lines mark where Word will start a new page, and the count in
+  the corner says how many pages you're handing in. It's an estimate —
+  a line sitting right on the boundary can land on either side.
+- **Markdown** swaps the page for the plain-text version, for pasting
+  into Google Docs or a Canvas box.
+- Clicking into a field scrolls the page to that section, so what you're
+  typing is what you're watching.
+
+On a narrow window there isn't room for both, so **Preview** flips
+between the form and the page instead of splitting the screen.
+
 ## Word export
+
+What you see is what saves: the page view and the Word file are built
+from the same list of blocks, so they cannot drift apart.
 
 The Word file is a real document, not exported text: a coloured title,
 section headings, a proper data table with a shaded header, boxed
@@ -112,7 +137,7 @@ table header, the striped rows and the calculation boxes. If you pick
 something pale, it darkens the parts that carry white text until they're
 still readable, so a highlighter yellow can't make your report
 unreadable. Four chips under the dropdown preview the real colours before
-you save.
+you save, and the page beside the form switches to them as you pick.
 
 Three toggles sit next to it:
 
@@ -196,13 +221,15 @@ tauri/
   index.html            the page shell
   src/
     main.ts             the form and everything you click
+    preview.ts          draws the live page: Block[] -> HTML
     ui.ts               el(), card(), field(), the custom dropdown, animations
     theme.ts            dark / light and the accent colours
     saveFile.ts         the Save dialog and writing the file
     styles.css          all the styling; every colour is a CSS variable
     backend/
-      models.ts         the shared data shapes
+      models.ts         the shared data shapes, including Block
       chem.ts           the chemistry math
+      document.ts       LabReport -> Block[]: what goes in the report
       report.ts         builds the Markdown preview
       exportDocx.ts     builds the Word document and holds the themes
   src-tauri/            the Rust side: window, plugins, permissions
@@ -211,6 +238,11 @@ tauri/
 
 The interface and the backend only talk through the types in `models.ts`.
 The UI never does math, and the math never touches a button.
+
+`document.ts` is the one place that knows what belongs in a report and in
+what order. Everything that draws the report reads its `Block[]` rather
+than the `LabReport` itself, which is why the live page and the Word file
+agree. If a rule about the report changes, it changes there, once.
 
 ### Making it yours
 

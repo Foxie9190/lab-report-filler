@@ -257,3 +257,119 @@ export class NotBuiltYet extends Error {
     Object.setPrototypeOf(this, NotBuiltYet.prototype);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Document blocks — the middle step between a LabReport and a finished page
+// ---------------------------------------------------------------------------
+/*
+ * A LabReport is what the person typed. A Block is one piece of the finished
+ * DOCUMENT: a heading, a bullet list, a table, a boxed calculation. Between
+ * them sits buildDocument() in document.ts, which decides what goes in, in
+ * what order, and what gets left out.
+ *
+ * WHY THIS EXISTS. Two things draw the report now — the Word file and the
+ * live preview on screen — and a third (the Markdown) could. If each one
+ * walked the LabReport itself, each would need its own copy of the rules
+ * ("safety goes after materials", "drop the blank rows", "skip an empty
+ * section"), and the day you changed one the others would quietly disagree.
+ *
+ *     LabReport --> buildDocument() --> Block[] --+--> Word renderer  --> .docx
+ *                                                 +--> HTML renderer  --> preview
+ *
+ * With the rules in one place, the preview is right BY CONSTRUCTION: if the
+ * page on screen looks correct, the Word file matches, because both were
+ * handed the same blocks.
+ *
+ * TYPESCRIPT NOTE: `Block` below is a DISCRIMINATED UNION — a value is
+ * exactly one of these shapes, and `kind` says which. Switch on `kind` and
+ * TS narrows the type for you inside each case: in `case "table":` it knows
+ * there is a `.headers`, and it will refuse `.items`. That is what makes a
+ * renderer a plain switch with no casting.
+ */
+
+/** The lab title, once, at the top. */
+export interface TitleBlock {
+  kind: "title";
+  text: string;
+}
+
+/** The quiet line under the title: name, class, teacher, date. */
+export interface BylineBlock {
+  kind: "byline";
+  text: string;
+}
+
+/** A line with a bold label in front of it, e.g. "Lab Partners: Sam, Jo". */
+export interface LabeledBlock {
+  kind: "labeled";
+  label: string;
+  text: string;
+}
+
+/** A section heading: "Material List", "Data", "Calculations". */
+export interface HeadingBlock {
+  kind: "heading";
+  text: string;
+}
+
+/** A bullet list. Already trimmed — no blank items. */
+export interface BulletsBlock {
+  kind: "bullets";
+  items: string[];
+}
+
+/** A small bold line over a table, e.g. the table's own name. */
+export interface CaptionBlock {
+  kind: "caption";
+  text: string;
+}
+
+/** A data table. Blank rows are already gone by the time it gets here. */
+export interface TableBlock {
+  kind: "table";
+  headers: string[];
+  rows: string[][];
+}
+
+/**
+ * One calculation, as a shaded box. Everything here is already a string —
+ * pretty() ran back in buildDocument, so no renderer has to know about
+ * units or scientific notation.
+ */
+export interface CalcBlock {
+  kind: "calc";
+  name: string;
+  /** "" when the formula is hidden or there isn't one. */
+  formula: string;
+  /** "" when there is no shown work. */
+  work: string;
+  answer: string;
+}
+
+/** One numbered analysis question, with its answer split into lines. */
+export interface QuestionBlock {
+  kind: "question";
+  number: number;
+  question: string;
+  /** One entry per line of the answer. Empty when nothing was written. */
+  answer: string[];
+  /** True when the answer is empty and it should be marked as such. */
+  unanswered: boolean;
+}
+
+/** Vertical breathing room. Word needs a real empty paragraph for this. */
+export interface GapBlock {
+  kind: "gap";
+}
+
+export type Block =
+  | TitleBlock
+  | BylineBlock
+  | LabeledBlock
+  | HeadingBlock
+  | BulletsBlock
+  | CaptionBlock
+  | TableBlock
+  | CalcBlock
+  | QuestionBlock
+  | GapBlock;

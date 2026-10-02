@@ -52,12 +52,14 @@ trusting the file, or one old save crashes the app on launch.
 
 ---
 
-## Phase 2 — Live document preview (ship as 2.2)
+## Phase 2 — Live document preview (ship as 2.2) — MOSTLY DONE
 
-**What it does.** A button flips the report card between *editing* and
-*page view*: the actual document, on a white page, in the Word theme's
-colours — headings, the shaded table header, the boxed calculations,
-numbered questions. It updates as you type.
+**What it does.** Shipped as a split instead of a flip: the form on the
+left, the document on the right, on a white Letter page in the Word
+theme's colours — headings, the shaded table header, the boxed
+calculations, numbered questions. It redraws as you type. Under 1000px
+there isn't room for both, so there the *Preview* button flips between
+them, which is the original idea kept for narrow windows.
 
 **The design decision that matters.** There are two ways to build this,
 and only one of them is maintainable:
@@ -81,15 +83,22 @@ the Word file matches, because both came from the same blocks.
 
 **Steps**
 
-1. Define the `Block` types in `models.ts` (`models.ts` is the file both
-   sides already agree on)
-2. Move the section-by-section logic out of `exportDocx.ts` into
-   `buildDocument()` — no behaviour change, tests should still pass
-3. Rewrite the Word builder to walk `Block[]` (it gets shorter)
-4. Write the HTML renderer — one function per block type
-5. Style the page: white sheet, drop shadow, Letter aspect ratio, theme
-   colours from the same `THEMES` object
-6. Wire the toggle button, and re-render on input (debounced)
+1. ~~Define the `Block` types in `models.ts`~~ — done, at the bottom of
+   `models.ts`
+2. ~~Write `buildDocument()`~~ — done, in `backend/document.ts`, with its
+   rules pinned down by tests in `test.ts`
+3. **Rewrite the Word builder to walk `Block[]` (it gets shorter)** —
+   STILL TO DO, and the one that matters. `exportDocx.ts` currently
+   repeats every rule `document.ts` already has: which sections print,
+   which rows are blank, how the questions are numbered. Until it reads
+   the blocks, the preview is only as honest as those two copies staying
+   in step. Deleting the duplicates is most of the work.
+4. ~~Write the HTML renderer — one function per block type~~ — done, in
+   `src/preview.ts` (`renderBlock`)
+5. ~~Style the page~~ — done, the bottom section of `styles.css`
+6. ~~Wire the toggle, and re-render on input (debounced)~~ — done;
+   `markDirty()` in `main.ts` is the single place that fires it, since
+   every edit already passed through there for the autosave
 
 **Bonus once this exists:** the Markdown preview can also be rebuilt from
 `Block[]`, so `report.ts` stops being a third place the same structure
@@ -183,4 +192,6 @@ put in it. Tracker last because it's the biggest new surface.
 - Does the Math tab export Word too, or PDF, or just print?
 - Does the tracker need subjects it can learn (type a new one and it's
   remembered), or a fixed list?
-- Should the preview show page breaks, or one long page?
+- ~~Should the preview show page breaks, or one long page?~~ Page breaks,
+  drawn every 9in with the page count in the corner. They're an estimate:
+  we are not Word, so a line on the boundary may land either side.

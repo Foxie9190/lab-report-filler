@@ -28,11 +28,28 @@
     <nav class="tabbar" role="tablist">
       <button class="tab" role="tab" data-tab="report" aria-selected="true">Lab report</button>
       <button class="tab" role="tab" data-tab="labs" aria-selected="false">My labs</button>
+      <span class="spacer"></span>
+      <button id="preview-toggle" class="tab-action" type="button" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="5" y="3" width="14" height="18" rx="2" />
+          <path d="M9 8h6M9 12h6M9 16h3" />
+        </svg>
+        Preview
+      </button>
     </nav>
 
     <main>
-      <section class="panel" id="panel-report" role="tabpanel">
-        <div class="wrap" id="report-sections"></div>
+      <!-- The form on the left, the document on the right, a drag handle
+           between them. On a narrow window the stylesheet turns the same
+           two columns into one screen you flip with the Preview button. -->
+      <section class="panel split-panel" id="panel-report" role="tabpanel">
+        <div class="split" id="report-split" data-preview="on">
+          <div class="form-col">
+            <div class="wrap" id="report-sections"></div>
+          </div>
+          <aside class="preview-col" id="preview-col" aria-label="Live document preview"></aside>
+        </div>
       </section>
 
       <section class="panel" id="panel-labs" role="tabpanel" hidden>

@@ -13,6 +13,8 @@
 
 import * as chem from "./src/backend/chem";
 import { buildReport } from "./src/backend/report";
+import { buildDocument } from "./src/backend/document";
+import type { Block } from "./src/backend/models";
 import { pretty } from "./src/backend/models";
 import type { CalcResult, LabReport } from "./src/backend/models";
 import { makeLabReport } from "./src/backend/models";
@@ -224,6 +226,132 @@ expectReport("no header line when every field is blank", withInfo(() => {}), (md
 expectReport("blank fields leave no double separators", withInfo((r) => {
   r.info.studentName = "Landon Urquhart"; r.info.date = "2026-09-21";   // class + teacher blank
 }), (md) => /\u00b7\s*\u00b7/.test(md) ? "two separators in a row — a blank field slipped in" : null);
+
+// ---------------------------------------------------------------------------
+// The document blocks
+// ---------------------------------------------------------------------------
+/*
+ * buildDocument() is what both the Word file and the live page view read, so
+ * a mistake here shows up in the report you hand in. These check the RULES —
+ * what goes in, in what order, what gets left out — not how it looks.
+ */
+
+console.log("\nthe document blocks");
+
+/** Expect something about the blocks a report turns into. */
+function expectBlocks(
+  label: string,
+  report: LabReport,
+  check: (blocks: Block[]) => string | null,
+): void {
+  try {
+    const problem = check(buildDocument(report));
+    if (problem === null) {
+      console.log(`  pass   ${label}`);
+      passed++;
+    } else {
+      console.log(`  FAIL   ${label}\n           ${problem}`);
+      failed++;
+    }
+  } catch (e) {
+    console.log(`  THREW  ${label}\n           ${(e as Error).message}`);
+    failed++;
+  }
+}
+
+/** Just the section headings, in order. */
+function sectionsOf(blocks: Block[]): string[] {
+  return blocks.filter((b) => b.kind === "heading").map((b) => b.text);
+}
+
+expectBlocks("the title is always the first block", makeLabReport(), (blocks) =>
+  blocks[0]?.kind === "title" ? null : `first block is ${blocks[0]?.kind}`);
+
+expectBlocks("an untitled report still has a title block", makeLabReport(), (blocks) =>
+  blocks[0]?.kind === "title" && blocks[0].text === "Lab Report"
+    ? null : "expected the placeholder title");
+
+expectBlocks("an empty report is only the title", makeLabReport(), (blocks) =>
+  blocks.length === 1 ? null : `got ${JSON.stringify(blocks.map((b) => b.kind))}`);
+
+expectBlocks("the sections come in template order", fullReport(), (blocks) => {
+  const want = ["Material List", "Safety Precautions", "Data", "Calculations", "Analysis Questions"];
+  const got = sectionsOf(blocks);
+  return JSON.stringify(got) === JSON.stringify(want) ? null : `got ${JSON.stringify(got)}`;
+});
+
+expectBlocks("safety is not forgotten", fullReport(), (blocks) =>
+  sectionsOf(blocks).includes("Safety Precautions") ? null : "no safety section");
+
+expectBlocks("an empty section is left out entirely", (() => {
+  const r = makeLabReport();
+  r.content.materials = "beaker";
+  return r;
+})(), (blocks) => {
+  const got = sectionsOf(blocks);
+  return JSON.stringify(got) === JSON.stringify(["Material List"])
+    ? null : `got ${JSON.stringify(got)}`;
+});
+
+expectBlocks("a row of blank cells never prints", (() => {
+  const r = makeLabReport();
+  r.tables = [{ title: "", headers: ["Trial", "Mass"], rows: [["1", "12.4"], ["", ""]] }];
+  return r;
+})(), (blocks) => {
+  const table = blocks.find((b) => b.kind === "table");
+  if (table?.kind !== "table") return "no table block";
+  return table.rows.length === 1 ? null : `kept ${table.rows.length} rows`;
+});
+
+expectBlocks("a table with nothing in it is dropped", (() => {
+  const r = makeLabReport();
+  r.tables = [{ title: "", headers: ["Trial", "Mass"], rows: [["", ""]] }];
+  return r;
+})(), (blocks) =>
+  sectionsOf(blocks).includes("Data") ? "printed an empty Data section" : null);
+
+expectBlocks("short rows are padded to the header width", (() => {
+  const r = makeLabReport();
+  r.tables = [{ title: "", headers: ["A", "B", "C"], rows: [["1"]] }];
+  return r;
+})(), (blocks) => {
+  const table = blocks.find((b) => b.kind === "table");
+  if (table?.kind !== "table") return "no table block";
+  return table.rows[0].length === 3 ? null : `row is ${table.rows[0].length} wide`;
+});
+
+expectBlocks("the calculation's answer is already a string", fullReport(), (blocks) => {
+  const calc = blocks.find((b) => b.kind === "calc");
+  if (calc?.kind !== "calc") return "no calc block";
+  return calc.answer === "2.5 g/mL" ? null : `got ${JSON.stringify(calc.answer)}`;
+});
+
+expectBlocks("questions are numbered by what prints, not by form row", (() => {
+  const r = makeLabReport();
+  r.analysis = [
+    { question: "", answer: "" },                 // an empty row in the form
+    { question: "First real one?", answer: "Yes." },
+    { question: "Second?", answer: "" },
+  ];
+  return r;
+})(), (blocks) => {
+  const qs = blocks.filter((b) => b.kind === "question");
+  if (qs.length !== 2) return `expected 2 questions, got ${qs.length}`;
+  if (qs[0].kind !== "question" || qs[1].kind !== "question") return "wrong kinds";
+  if (qs[0].number !== 1 || qs[1].number !== 2) return `numbered ${qs[0].number}, ${qs[1].number}`;
+  return qs[1].unanswered ? null : "the blank answer should be marked unanswered";
+});
+
+expectBlocks("an answer keeps its own lines", (() => {
+  const r = makeLabReport();
+  r.analysis = [{ question: "Why?", answer: "  First line\n\nSecond line  " }];
+  return r;
+})(), (blocks) => {
+  const q = blocks.find((b) => b.kind === "question");
+  if (q?.kind !== "question") return "no question block";
+  return JSON.stringify(q.answer) === JSON.stringify(["First line", "Second line"])
+    ? null : `got ${JSON.stringify(q.answer)}`;
+});
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

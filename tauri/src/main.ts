@@ -28,7 +28,9 @@ import { setUpTheme } from "./theme";
 import { CALCULATIONS } from "./backend/chem";
 import type { Calculation } from "./backend/chem";
 import type { CalcResult } from "./backend/models";
-import { buildReport } from "./backend/report";
+import { defaultDocumentOptions } from "./backend/document";
+import { setUpPreview } from "./preview";
+import type { Preview, PreviewInputs } from "./preview";
 import {
   buildDocx,
   CUSTOM,
@@ -49,7 +51,7 @@ import {
 } from "./store";
 import type { LabSummary } from "./store";
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 
 /** Everything the person has typed. One object, same shape as the report. */
 const state: LabReport = makeLabReport();
@@ -60,6 +62,35 @@ const state: LabReport = makeLabReport();
  * same row instead of piling up copies.
  */
 let currentLabId: number | null = null;
+
+/**
+ * The live page view on the right, and the function it uses to read the
+ * form's Word-theme dropdown and checkboxes.
+ *
+ * Both are module-level because the preview is built once at startup, while
+ * the controls it reads are rebuilt by buildReportScreen() every time a lab
+ * is opened. So the screen hands a fresh reader up to here instead, and the
+ * preview never holds a reference to a control that has been thrown away.
+ */
+let preview: Preview | null = null;
+
+/**
+ * Redraw the page view, if it has been built yet.
+ *
+ * Called through a function rather than touching `preview` directly, because
+ * buildReportScreen() has a local `preview` of its own — the row of Word
+ * colour chips — and inside it the name means that instead.
+ */
+function refreshPage(): void {
+  preview?.refresh();
+}
+let readDocument: () => PreviewInputs = () => ({
+  report: state,
+  theme: THEMES.Teal,
+  themeName: "Teal",
+  stripedRows: true,
+  docOptions: defaultDocumentOptions(),
+});
 
 // ---------------------------------------------------------------------------
 // Autosave
@@ -90,11 +121,18 @@ async function saveNow(): Promise<void> {
   }
 }
 
-/** Call after anything that changes `state`. */
+/**
+ * Call after anything that changes `state`.
+ *
+ * Every edit already came through here for the autosave, so this is also
+ * the one place the page view has to be told to redraw. Its own refresh()
+ * coalesces the calls, so once per keystroke is fine.
+ */
 function markDirty(): void {
   setSaveState("Saving\u2026");
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => void saveNow(), 600);
+  refreshPage();
 }
 
 /**
@@ -121,6 +159,16 @@ function openLab(report: LabReport | null, id: number | null): void {
 // ---------------------------------------------------------------------------
 // The report screen
 // ---------------------------------------------------------------------------
+
+/**
+ * Tag a card with the part of the document it fills in, and hand it back so
+ * it can be appended inline. Focusing anything inside it scrolls the page
+ * view to that part — see the focusin listener in main().
+ */
+function section(name: string, node: HTMLElement): HTMLElement {
+  node.dataset.section = name;
+  return node;
+}
 
 function buildReportScreen(): void {
   const host = document.getElementById("report-sections");
@@ -174,14 +222,14 @@ function buildReportScreen(): void {
   );
 
   host.append(
-    card(
+    section("header", card(
       "Lab info",
       "The header of the report.",
       title.wrap,
       row(student.wrap, course.wrap),
       row(teacher.wrap, date.wrap),
       partners.wrap,
-    ),
+    )),
   );
 
   // -- Materials & safety
@@ -197,12 +245,12 @@ function buildReportScreen(): void {
   );
 
   host.append(
-    card(
+    section("materials", card(
       "Materials & safety",
       "One item per line — they become bullet points.",
       materials.wrap,
       safety.wrap,
-    ),
+    )),
   );
   // Calculaton options
   const picker = el("select");
@@ -628,12 +676,6 @@ function buildReportScreen(): void {
   }
   renderQuestions();
 
-  const reportPriview = el("pre", { class: "preview" });
-  const reportbutton = el("button", { class: "primary" }, ["Generate Report"]);
-  reportbutton.addEventListener("click", () => {
-    reportPriview.textContent = buildReport(state);
-  });
-
   // -- Word export ----------------------------------------------------------
   // Theme dropdown, built from themeNames() so a new theme in exportDocx.ts
   // shows up here by itself.
@@ -755,6 +797,9 @@ function buildReportScreen(): void {
       b.setAttribute("aria-checked", String(b.dataset.hex === customColor));
     });
     renderPreview();
+    // A swatch is a click, not an input, so it never reaches markDirty's
+    // listener on the form — the page has to be told about it here.
+    refreshPage();
   }
 
   function showCustom(): void {
@@ -778,6 +823,22 @@ function buildReportScreen(): void {
   const showFormulas = option("Show formulas");
   const stripedRows = option("Striped table rows");
   const markUnanswered = option("Mark unanswered questions");
+
+  // How the page view reads this screen. Rebuilt with the screen, so it
+  // always points at the controls that are actually on it.
+  readDocument = () => ({
+    report: state,
+    theme:
+      docTheme.value === CUSTOM
+        ? customTheme(customColor)
+        : (THEMES[docTheme.value] ?? THEMES.Teal),
+    themeName: docTheme.value,
+    stripedRows: stripedRows.box.checked,
+    docOptions: {
+      showFormulas: showFormulas.box.checked,
+      markUnanswered: markUnanswered.box.checked,
+    },
+  });
 
   const saveStatus = el("div", { class: "fields" });
   const saveButton = el("button", { class: "primary", type: "button" }, [
@@ -806,13 +867,13 @@ function buildReportScreen(): void {
   });
   // -- The sections still waiting on the backend
   host.append(
-    card(
+    section("data", card(
       "Data tables",
       "Click on a header to rename it",
       tablesbox,
       el("div", { class: "actions" }, [addTable]),
-    ),
-    card(
+    )),
+    section("calculations", card(
       "Calculations",
       null,
       row(pickerWrap, unitWrap),
@@ -821,18 +882,16 @@ function buildReportScreen(): void {
       calcResult,
       el("h3", { class: "sub" }, ["Added to the report"]),
       calcList,
-    ),
-    card(
+    )),
+    section("analysis", card(
       "Analysis questions",
       "Copy Each Question from the lab, then answer it",
       qaList,
       el("div", { class: "actions" }, [addQuestion]),
-    ),
+    )),
     card(
       "Your report",
-      "Generate a preview, then save it as Word.",
-      el("div", { class: "actions" }, [reportbutton]),
-      reportPriview,
+      "The page on the right is what saves. Pick its look, then save it as Word.",
       docThemeWrap,
       customPanel,
       preview,
@@ -988,6 +1047,9 @@ function showTab(name: string): void {
     const panel = document.getElementById(`panel-${tab.dataset.tab}`);
     if (panel) panel.hidden = !on;
   }
+  // The Preview button only means anything on the report tab.
+  const previewToggle = document.getElementById("preview-toggle");
+  if (previewToggle) previewToggle.hidden = name !== "report";
   // The list is rebuilt on every visit, so it can't show a stale lab.
   if (name === "labs") buildLabsScreen();
 }
@@ -1021,11 +1083,24 @@ async function main(): Promise<void> {
   }
   openLab(report, report === null ? null : last);
 
+  // After openLab, because buildReportScreen() is what sets readDocument —
+  // the preview draws itself as soon as it is built, and it needs the real
+  // theme and checkboxes rather than the fallbacks.
+  preview = setUpPreview(() => readDocument());
+
   // One listener on the whole form, rather than one per box: typing anywhere
   // inside it bubbles up to here.
   const host = document.getElementById("report-sections");
   host?.addEventListener("input", markDirty);
   host?.addEventListener("change", markDirty);
+
+  // Clicking into a field brings that part of the page into view, so the
+  // thing you are typing is the thing you are watching. It only scrolls when
+  // the section is off screen, so it never fights you.
+  host?.addEventListener("focusin", (event) => {
+    const card = (event.target as HTMLElement).closest<HTMLElement>("[data-section]");
+    if (card?.dataset.section) preview?.reveal(card.dataset.section);
+  });
 }
 
 void main();
