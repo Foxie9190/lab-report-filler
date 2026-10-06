@@ -43,6 +43,7 @@
     <nav class="tabbar" role="tablist">
       <button class="tab" role="tab" data-tab="report" aria-selected="true">Lab report</button>
       <button class="tab" role="tab" data-tab="labs" aria-selected="false">My labs</button>
+      <button class="tab" role="tab" data-tab="math" aria-selected="false">Math</button>
       <span class="spacer"></span>
       <button id="preview-toggle" class="tab-action" type="button" aria-pressed="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -69,6 +70,11 @@
 
       <section class="panel" id="panel-labs" role="tabpanel" hidden>
         <div class="wrap" id="labs-sections"></div>
+      </section>
+
+      <!-- Built the first time the tab is opened; see src/math/mathTab.ts -->
+      <section class="panel" id="panel-math" role="tabpanel" hidden>
+        <div class="wrap" id="math-sections"></div>
       </section>
     </main>
 

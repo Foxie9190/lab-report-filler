@@ -106,7 +106,7 @@ gets written out.
 
 ---
 
-## Phase 3 — Tabs and the Math tab (ship as 2.3)
+## Phase 3 — Tabs and the Math tab — DONE
 
 **The tab bar comes back**, but built to hold any number of subjects
 rather than two hardcoded ones.
@@ -128,6 +128,11 @@ rather than two hardcoded ones.
 - An expression box: type `3x + 7 = 22` or `sin(30) + 2^3`
 - Steps, not just answers — the point is homework you can hand in
 - Its own export: a numbered problem sheet with name and class at the top
+
+**Built:** the tab bar holds any number of subjects, the Math tab has its
+own inner tabs (Calculator, Graph), and the engine — tokenizer, parser,
+evaluator — is written and tested. Still open from this phase: solving
+equations with the steps written out, and the printable problem sheet.
 
 **The solver is the interesting part, and it's yours to write.** It needs
 a real parser — tokenise, parse to a tree, evaluate — *not* `eval()` or

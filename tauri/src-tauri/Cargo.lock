@@ -2134,7 +2134,7 @@ dependencies = [
 
 [[package]]
 name = "lab-report-filler"
-version = "2.3.0"
+version = "3.0.0"
 dependencies = [
  "serde",
  "serde_json",

@@ -1,8 +1,10 @@
 # Lab Report Filler
 
-An app for writing chemistry lab reports. Fill in the form, watch
-the document build itself on the page beside you, let it do the math and
-show the work, and save a finished Word document you can turn in.
+A schoolwork app with tabs. **Lab report** writes chemistry lab reports —
+fill in the form, watch the document build itself on the page beside you,
+let it do the math and show the work, and save a finished Word document you
+can turn in. **Math** is a calculator and a graph, both running on an
+expression engine written from scratch.
 
 Mac, Windows and Linux — or straight in your browser at
 **[foxie9190.github.io/lab-report-filler](https://foxie9190.github.io/lab-report-filler/)**,
@@ -235,6 +237,74 @@ need the installed app:
 so labs typed on the website stay in that browser, and the header has a
 **Get the app** link instead of the account button.
 
+## Math
+
+A second subject, with its own tabs inside the tab — because a calculator
+and a graph want completely different screens.
+
+### Calculator
+
+Laid out like a page of working rather than a pocket calculator: every line
+you enter stays on screen with its answer under it, so you can see how you
+got somewhere instead of one number in a window.
+
+- **Degrees or Radians**, with the button in the corner. The graph uses the
+  same setting, so the two can never disagree about what `sin(90)` means.
+- **Variables** — `x = 5`, then `x^2 + 1`. What you've set is listed under
+  the working, and clicking one forgets it.
+- **`ans`** is the last answer, so `ans / 2` carries on from the line above.
+- **The keys** under the box type for you and put the cursor inside the
+  brackets: `√`, `x²`, `π`, `sin`, `log` and the rest.
+- **↑** brings back the last thing you typed.
+- Anything wrong says so on the line that caused it — `1/0` answers *Can't
+  divide by zero*, not `Infinity`.
+
+Built in: `sqrt`, `abs`, `round`, `floor`, `ceil`, `ln`, `log`, `sin`,
+`cos`, `tan`, `asin`, `acos`, `atan`, `min`, `max`, plus `pi` and `e`.
+
+### Graph
+
+Type `y = x^2 - 3` and it's drawn. Add as many lines as you like; each gets
+its own colour.
+
+- **Drag** to move, **scroll** to zoom in on wherever the pointer is, or use
+  **+ − Reset**. Hovering says what `x` and `y` are under the pointer.
+- Anything the calculator knows works here: set `a = 2` in the calculator
+  and you can draw `a*x^2`.
+- `sqrt(x)` simply stops at zero rather than drawing nonsense, and `1/x`
+  doesn't get a fake vertical line through the break at zero — a gap in a
+  function is drawn as a gap.
+
+### How it works, and why there's no `eval`
+
+The obvious way to turn `2 + 3 * 4` into 14 is to hand it to `eval()`. The
+app never does, because `eval` runs whatever it's given *as code* — one
+typed line could reach anything the app can.
+
+Instead `src/backend/math` does it properly, in three steps:
+
+```
+"2 + 3 * 4"  ──tokenize──▶  2 + 3 * 4  ──parse──▶    +     ──evaluate──▶  14
+                            (pieces)                / \
+                                                   2   *
+                                                      / \
+                                                     3   4
+```
+
+1. **tokenize.ts** chops the text into pieces: numbers, names, operators.
+   No maths, no meaning.
+2. **parse.ts** builds a tree. One function per level of precedence —
+   `+ −`, then `* /`, then `^`, then the smallest pieces — each asking the
+   level below it for its parts. That nesting *is* the precedence; there's
+   no table of priorities anywhere. `^` leans right (`2^3^2` is 512) because
+   it calls itself instead of looping.
+3. **evaluate.ts** walks the tree and returns a number. A `NaN` or an
+   `Infinity` is caught where it appears rather than being allowed to spread
+   — which is what keeps the graph honest.
+
+The engine is covered by three test files: `npm run test:math`,
+`npm run test:parse`, `npm run test:eval`.
+
 ## Troubleshooting
 
 **"Lab Report Filler can't be opened" / "is damaged"** (Mac) — right-click
@@ -273,10 +343,9 @@ pip install -r requirements.txt
 python3 main.py desktop
 ```
 
-It has one thing version 2 doesn't, yet: a **Trigonometry** tab — a
-scratch calculator with degrees mode, variables, a function palette and a
-keypad. Version 2 is growing a bigger version of that idea, a Math tab
-with its own areas (see [docs/ROADMAP-3.0.md](docs/ROADMAP-3.0.md)).
+Its **Trigonometry** tab was the ancestor of the Math tab above — the same
+idea, one screen instead of several, and the expression engine rewritten
+from scratch in TypeScript.
 
 Version 2 is where new work happens.
 
@@ -297,6 +366,7 @@ npm run build        # the website build, into dist/
 npm test             # the chemistry tests
 npm run test:math    # the math tokenizer
 npm run test:parse   # the math parser
+npm run test:eval    # the math evaluator
 npm run check        # TypeScript, no build
 ```
 
@@ -319,6 +389,10 @@ tauri/
     updateBar.ts        the "there's a new version" strip
     saveFile.ts         the Save dialog and writing the file
     styles.css          all the styling; every colour is a CSS variable
+    math/
+      mathTab.ts        the Math tab shell and its inner tabs
+      calculator.ts     the calculator screen
+      graph.ts          the graph screen: axes, curves, pan and zoom
     backend/
       models.ts         the shared data shapes, including Block
       chem.ts           the chemistry math
@@ -330,10 +404,12 @@ tauri/
       math/
         tokenize.ts     text -> tokens
         parse.ts        tokens -> a tree
+        evaluate.ts     a tree -> a number
   src-tauri/            the Rust side: window, plugins, permissions
   test.ts               the chemistry tests
   test-math.ts          the tokenizer tests
   test-parse.ts         the parser tests
+  test-eval.ts          the evaluator tests
 
 server/                 the accounts and sync API (Node, Express, MongoDB)
   src/server.ts         the routes
@@ -366,6 +442,15 @@ names and the units. It shows up in the dropdown next launch.
 `styles.css`. Dark is the default; light is the `[data-theme="light"]`
 block under it.
 
+**Add a maths function.** One line in `FUNCTIONS` at the top of
+`evaluate.ts` — a name, how many numbers it takes, and what it does. The
+calculator lists what's available from that same object, so it appears in
+the help line by itself.
+
+**Add an area to the Math tab.** Write a module exporting
+`build(host, shared)`, then add it to `AREAS` in `math/mathTab.ts`. It gets
+the shared `env`, so variables set in the calculator are available in it.
+
 ### Releasing a version
 
 Two apps, two workflows, two tag prefixes — so tagging one never
@@ -373,8 +458,8 @@ rebuilds the other.
 
 **Version 2 (Tauri)** — bump the number in all four places
 (`tauri/package.json`, `tauri/src-tauri/Cargo.toml`,
-`tauri/src-tauri/tauri.conf.json`, and `VERSION` in `tauri/src/main.ts`),
-commit, then:
+`tauri/src-tauri/tauri.conf.json`, and `VERSION` in
+`tauri/src/backend/updates.ts`), commit, then:
 
 ```bash
 git tag v2.0.1

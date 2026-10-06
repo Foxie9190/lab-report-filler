@@ -56,6 +56,7 @@ import type { LabSummary } from "./store";
 import { VERSION } from "./backend/updates";
 import { setUpUpdateBar } from "./updateBar";
 import { setUpAccount } from "./account";
+import { buildMathScreen } from "./math/mathTab";
 import { deleteFromCloud } from "./cloud";
 
 /** Everything the person has typed. One object, same shape as the report. */
@@ -1099,6 +1100,9 @@ function showTab(name: string): void {
   if (previewToggle) previewToggle.hidden = name !== "report";
   // The list is rebuilt on every visit, so it can't show a stale lab.
   if (name === "labs") buildLabsScreen();
+  // The Math tab builds itself the first time it's opened — a graph nobody
+  // has looked at shouldn't cost anything at startup.
+  if (name === "math") buildMathScreen();
 }
 
 function setUpTabs(): void {
