@@ -1108,6 +1108,56 @@ function setUpTabs(): void {
 }
 
 // ---------------------------------------------------------------------------
+// The website
+// ---------------------------------------------------------------------------
+
+/** True inside the installed app, false in a browser tab. */
+function inTauri(): boolean {
+  return "__TAURI_INTERNALS__" in window;
+}
+
+/**
+ * What the header says on the website instead of the account button.
+ *
+ * Two jobs: point at the real app for anyone who wants their labs on more
+ * than one computer, and be honest about where the labs they type here are
+ * actually kept.
+ */
+function showWebNotice(): void {
+  const button = document.getElementById("account-button");
+  button?.remove();
+
+  const link = el(
+    "a",
+    {
+      class: "get-app",
+      href: "https://github.com/Foxie9190/lab-report-filler/releases/latest",
+      target: "_blank",
+      rel: "noreferrer",
+      title: "Download the app for Mac, Windows or Linux",
+    },
+    ["Get the app"],
+  );
+  document.getElementById("theme-toggle")?.before(link);
+
+  const bar = document.getElementById("update-bar");
+  if (bar) {
+    bar.replaceChildren(
+      el("span", {}, [
+        "You're using the web version — labs are saved in this browser only. ",
+      ]),
+      el(
+        "a",
+        { href: "https://github.com/Foxie9190/lab-report-filler/releases/latest", target: "_blank", rel: "noreferrer" },
+        ["Get the app"],
+      ),
+      el("span", {}, [" to sync them to your account."]),
+    );
+    bar.hidden = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Startup
 // ---------------------------------------------------------------------------
 
@@ -1141,16 +1191,29 @@ async function main(): Promise<void> {
   host?.addEventListener("input", markDirty);
   host?.addEventListener("change", markDirty);
 
-  // Last, and deliberately: the app is already usable by now, so a slow
-  // network can only delay the strip, never the window.
-  setUpUpdateBar();
+  /*
+   * The two header pieces that only make sense in the installed app.
+   *
+   * On the website the page IS the newest version, so an update strip would
+   * be nonsense; and sync reads the SQLite database, which a browser tab
+   * does not have — the web version keeps its labs in that browser instead.
+   * Rather than offer either and then explain why it did nothing, the web
+   * build shows a link to download the real app.
+   */
+  if (inTauri()) {
+    // Last, and deliberately: the app is already usable by now, so a slow
+    // network can only delay the strip, never the window.
+    setUpUpdateBar();
 
-  // The account pop-out lives in the header, not in a tab: signing in is
-  // optional, and a tab would imply it is part of the flow.
-  setUpAccount(() => {
-    // Only redraws when the labs list is the thing on screen.
-    if (!document.getElementById("panel-labs")?.hidden) buildLabsScreen();
-  });
+    // The account pop-out lives in the header, not in a tab: signing in is
+    // optional, and a tab would imply it is part of the flow.
+    setUpAccount(() => {
+      // Only redraws when the labs list is the thing on screen.
+      if (!document.getElementById("panel-labs")?.hidden) buildLabsScreen();
+    });
+  } else {
+    showWebNotice();
+  }
 
   // Clicking into a field brings that part of the page into view, so the
   // thing you are typing is the thing you are watching. It only scrolls when

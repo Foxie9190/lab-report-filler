@@ -1226,7 +1226,23 @@ body.dragging { cursor: col-resize; user-select: none; }
 .account-button.in { color: var(--tab-on); border-color: color-mix(in srgb, var(--tab-on) 55%, transparent); }
 .account-button #account-label { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* The website's stand-in for the account button: a way to get the real app. */
+.get-app {
+  align-self: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.get-app:hover { border-color: rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.08); }
+.get-app:focus-visible { outline: 2px solid var(--tab-on); outline-offset: 2px; }
+
 @media (prefers-reduced-motion: reduce) {
   .sheet[open] { animation: none; }
-  .account-button { transition: none; }
+  .account-button, .get-app { transition: none; }
 }

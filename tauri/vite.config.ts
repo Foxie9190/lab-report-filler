@@ -5,6 +5,17 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
+  /*
+   * Where the files will be served from.
+   *
+   * The installed app and `npm run dev` both serve from the root, so "/" is
+   * right for them. GitHub Pages serves a project site from a subfolder
+   * (/lab-report-filler/), and without this every link would point one level
+   * too high and the page would come up blank. The Pages workflow sets
+   * VITE_BASE; nothing else has to know.
+   */
+  base: process.env.VITE_BASE || "/",
+
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

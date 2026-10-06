@@ -1,0 +1,65 @@
+# Publishes the app as a website on GitHub Pages.
+#
+# Same code as the desktop app — the browser build just leaves out the parts
+# that need the installed app (the update strip, and sync, which reads the
+# SQLite database). Labs typed on the website live in that browser.
+#
+# Turn it on once in the repo: Settings -> Pages -> Source: GitHub Actions.
+
+name: Website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # a Run button, for publishing without a commit
+
+# Pages needs to be allowed to write; the default token is read-only.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time. A second push waits rather than racing the first.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tauri/package-lock.json
+
+      - name: Install
+        working-directory: tauri
+        run: npm ci
+
+      - name: Build
+        working-directory: tauri
+        # A project site lives at /<repo>/, not at the domain root, so the
+        # built files have to know that prefix.
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: tauri/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
