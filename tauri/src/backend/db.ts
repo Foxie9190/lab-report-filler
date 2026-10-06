@@ -60,7 +60,24 @@ const SCHEMA = [
 ];
 
 let db: Database | null = null;
+const LATER_COLUMNS = [
+  { table: "lab", column: "cloud_id", type: "TEXT" },
+  { table: "lab", column: "dirty", type: "INTEGER NOT NULL DEFAULT 1" },
+  { table: "lab", column: "synced_at", type: "TEXT" },
+];
 
+async function addLaterColumns(database: Database): Promise<void> {
+  for (const later of LATER_COLUMNS) {
+    // PRAGMA table_info lists a table's columns — SQLite describing itself.
+    const existing = await database.select<{ name: string }[]>(
+      `PRAGMA table_info(${later.table})`,
+    );
+    if (existing.some((column) => column.name === later.column)) continue;
+    await database.execute(
+      `ALTER TABLE ${later.table} ADD COLUMN ${later.column} ${later.type}`,
+    );
+  }
+}
 export async function openDatabase(): Promise<Database> {
   if (db) return db;
   db = await Database.load("sqlite:labfiller.db");
@@ -68,6 +85,7 @@ export async function openDatabase(): Promise<Database> {
   for (const statement of SCHEMA) {
     await db.execute(statement);
   }
+  await addLaterColumns(db);
   return db;
 }
 
@@ -101,7 +119,7 @@ export async function saveLab(
     await db.execute(
       `UPDATE lab SET title = $1, student_name = $2, course = $3, teacher = $4,
                       lab_date = $5, partners = $6, materials = $7, safety = $8,
-                      updated_at = datetime('now')
+                      updated_at = datetime('now'), dirty = 1
        WHERE id = $9`,
       [...fields, id],
     );
@@ -323,4 +341,83 @@ export async function duplicateLab(id: number): Promise<number | null> {
   if (report === null) return null;
   report.info.title = `${report.info.title || "Lab Report"} (copy)`;
   return saveLab(report, null);
+}
+
+// ---- sync helpers -----------------------------------------------------------
+// The sync code in src/cloud.ts needs a few questions answered about labs that
+// the normal save/load pair doesn't cover: which ones changed, which cloud
+// record a local lab belongs to, and how to write a lab that CAME from the
+// server without immediately marking it as needing to go back up.
+
+/** Labs with local changes the server hasn't got yet. */
+export async function labsToPush(): Promise<{ id: number; cloudId: string | null }[]> {
+  const db = await openDatabase();
+  const rows = await db.select<{ id: number; cloud_id: string | null }[]>(
+    "SELECT id, cloud_id FROM lab WHERE dirty = 1 ORDER BY updated_at",
+  );
+  return rows.map((r) => ({ id: r.id, cloudId: r.cloud_id }));
+}
+
+/** When the app last changed this lab — the timestamp sync compares. */
+export async function labUpdatedAt(id: number): Promise<string | null> {
+  const db = await openDatabase();
+  const rows = await db.select<{ updated_at: string }[]>(
+    "SELECT updated_at FROM lab WHERE id = $1",
+    [id],
+  );
+  return rows[0]?.updated_at ?? null;
+}
+
+/** Which local lab is this server record? Null if this device hasn't got it. */
+export async function labIdForCloud(cloudId: string): Promise<number | null> {
+  const db = await openDatabase();
+  const rows = await db.select<{ id: number }[]>(
+    "SELECT id FROM lab WHERE cloud_id = $1",
+    [cloudId],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/** After a successful push: remember the server's id and clear the flag. */
+export async function markLabSynced(id: number, cloudId: string): Promise<void> {
+  const db = await openDatabase();
+  await db.execute(
+    "UPDATE lab SET cloud_id = $1, dirty = 0, synced_at = datetime('now') WHERE id = $2",
+    [cloudId, id],
+  );
+}
+
+/**
+ * Write a lab that came DOWN from the server.
+ *
+ * saveLab() marks whatever it writes as dirty, which is right for a person
+ * typing and wrong for a copy that just arrived — it would be pushed straight
+ * back up. So the flag is cleared afterwards, and updated_at is set to the
+ * server's value so the two sides agree on which is newer.
+ */
+export async function saveLabFromServer(
+  report: LabReport,
+  cloudId: string,
+  appUpdatedAt: string,
+): Promise<number> {
+  const existing = await labIdForCloud(cloudId);
+  const id = await saveLab(report, existing);
+  const db = await openDatabase();
+  await db.execute(
+    `UPDATE lab SET cloud_id = $1, dirty = 0, synced_at = datetime('now'),
+                    updated_at = $2
+     WHERE id = $3`,
+    [cloudId, appUpdatedAt, id],
+  );
+  return id;
+}
+
+/** The cloud id of a local lab, if it has one. */
+export async function cloudIdFor(id: number): Promise<string | null> {
+  const db = await openDatabase();
+  const rows = await db.select<{ cloud_id: string | null }[]>(
+    "SELECT cloud_id FROM lab WHERE id = $1",
+    [id],
+  );
+  return rows[0]?.cloud_id ?? null;
 }

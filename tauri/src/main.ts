@@ -34,6 +34,8 @@ import type { Preview, PreviewInputs } from "./preview";
 import {
   buildDocx,
   CUSTOM,
+  DEFAULT_FONT,
+  DOC_FONTS,
   customTheme,
   THEMES,
   themeNames,
@@ -53,6 +55,8 @@ import type { LabSummary } from "./store";
 
 import { VERSION } from "./backend/updates";
 import { setUpUpdateBar } from "./updateBar";
+import { setUpAccount } from "./account";
+import { deleteFromCloud } from "./cloud";
 
 /** Everything the person has typed. One object, same shape as the report. */
 const state: LabReport = makeLabReport();
@@ -89,6 +93,7 @@ let readDocument: () => PreviewInputs = () => ({
   report: state,
   theme: THEMES.Teal,
   themeName: "Teal",
+  font: DEFAULT_FONT,
   stripedRows: true,
   docOptions: defaultDocumentOptions(),
 });
@@ -714,6 +719,27 @@ function buildReportScreen(): void {
   if (savedTheme && themeNames().includes(savedTheme))
     docTheme.value = savedTheme;
 
+  // Font for the Word file. Same pattern as the theme dropdown: built from
+  // the list in exportDocx.ts, so adding a font there adds it here.
+  const docFont = el("select");
+  for (const font of DOC_FONTS) {
+    docFont.append(el("option", { value: font.name }, [font.name]));
+  }
+  const savedFont = remembered("labfiller.docFont");
+  if (savedFont && DOC_FONTS.some((f) => f.name === savedFont)) {
+    docFont.value = savedFont;
+  } else {
+    docFont.value = DEFAULT_FONT;
+  }
+  docFont.addEventListener("change", () => {
+    remember("labfiller.docFont", docFont.value);
+    refreshPage();   // the page view follows the choice
+  });
+  const docFontWrap = el("label", { class: "f" }, [
+    el("span", {}, ["Font"]),
+    enhanceSelect(docFont),
+  ]);
+
   const docThemeWrap = el("label", { class: "f" }, [
     el("span", {}, ["Word theme"]),
     enhanceSelect(docTheme),
@@ -840,6 +866,7 @@ function buildReportScreen(): void {
         ? customTheme(customColor)
         : (THEMES[docTheme.value] ?? THEMES.Teal),
     themeName: docTheme.value,
+    font: docFont.value,
     stripedRows: stripedRows.box.checked,
     docOptions: {
       showFormulas: showFormulas.box.checked,
@@ -854,6 +881,7 @@ function buildReportScreen(): void {
   saveButton.addEventListener("click", async () => {
     const options: DocxOptions = {
       theme: docTheme.value,
+      font: docFont.value,
       customColor,
       showFormulas: showFormulas.box.checked,
       stripedRows: stripedRows.box.checked,
@@ -908,7 +936,7 @@ function buildReportScreen(): void {
     card(
       "Your report",
       "The page on the right is what saves. Pick its look, then save it as Word.",
-      docThemeWrap,
+      row(docThemeWrap, docFontWrap),
       customPanel,
       preview,
       el("div", { class: "actions" }, [
@@ -998,6 +1026,9 @@ function labRow(lab: LabSummary, refresh: () => void): HTMLElement {
       buttons.replaceChildren(open, copy, drop),
     );
     yes.addEventListener("click", async () => {
+      // Tell the server first: the cloud id is read from the local row, so
+      // deleting locally first would lose the only link to it.
+      await deleteFromCloud(lab.id);
       await deleteLab(lab.id);
       // If the open lab was the one deleted, the form is now an unsaved copy.
       if (lab.id === currentLabId) {
@@ -1113,6 +1144,13 @@ async function main(): Promise<void> {
   // Last, and deliberately: the app is already usable by now, so a slow
   // network can only delay the strip, never the window.
   setUpUpdateBar();
+
+  // The account pop-out lives in the header, not in a tab: signing in is
+  // optional, and a tab would imply it is part of the flow.
+  setUpAccount(() => {
+    // Only redraws when the labs list is the thing on screen.
+    if (!document.getElementById("panel-labs")?.hidden) buildLabsScreen();
+  });
 
   // Clicking into a field brings that part of the page into view, so the
   // thing you are typing is the thing you are watching. It only scrolls when

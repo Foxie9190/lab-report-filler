@@ -21,6 +21,7 @@ import type { Block, LabReport } from "./backend/models";
 import type { Theme } from "./backend/exportDocx";
 import type { DocumentOptions } from "./backend/document";
 import { buildDocument } from "./backend/document";
+import { fontCss } from "./backend/exportDocx";
 import { buildReport } from "./backend/report";
 import { el } from "./ui";
 
@@ -30,6 +31,8 @@ export interface PreviewInputs {
   theme: Theme;
   /** The Word theme's name, just for the caption under the sheet. */
   themeName: string;
+  /** The document's font, so the page on screen matches the file. */
+  font: string;
   stripedRows: boolean;
   docOptions: DocumentOptions;
 }
@@ -332,7 +335,7 @@ export function setUpPreview(read: () => PreviewInputs): Preview {
 
   // ---- drawing ------------------------------------------------------------
   function draw(): void {
-    const { report, theme, themeName, stripedRows, docOptions } = read();
+    const { report, theme, themeName, font, stripedRows, docOptions } = read();
 
     if (mode === "markdown") {
       markdown.textContent = buildReport(report);
@@ -346,6 +349,9 @@ export function setUpPreview(read: () => PreviewInputs): Preview {
     paper.style.setProperty("--doc-box", `#${theme.box}`);
     paper.style.setProperty("--doc-ink", `#${theme.ink}`);
     paper.style.setProperty("--doc-muted", `#${theme.muted}`);
+    // The paper uses the document's own font, so what you see on screen is
+    // what lands in the .docx.
+    paper.style.setProperty("--doc-font", fontCss(font));
     paper.title = `Letter page, ${themeName} theme`;
 
     const blocks = buildDocument(report, docOptions);

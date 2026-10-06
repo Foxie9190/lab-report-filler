@@ -10,3 +10,9 @@ dist/
 *.spec
 build.log
 Claude outputs/
+
+# The API server: its packages, its build output, and above all its .env,
+# which holds the MongoDB connection string.
+server/node_modules/
+server/.env
+server/dist/

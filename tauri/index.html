@@ -12,7 +12,17 @@
       <span class="version" id="version"></span>
       <span class="save-state" id="save-state"></span>
       <span class="spacer"></span>
+      <!-- Filled by src/theme.ts, so the list of fonts lives in one place. -->
+      <select id="ui-font" class="font-select" aria-label="App font"></select>
       <div id="accent-picker" class="accents" role="radiogroup" aria-label="Accent colour"></div>
+      <button id="account-button" class="account-button" type="button" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+        </svg>
+        <span id="account-label">Sign in</span>
+      </button>
       <button id="theme-toggle" type="button" aria-label="Switch to light theme">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -59,6 +69,10 @@
         <div class="wrap" id="labs-sections"></div>
       </section>
     </main>
+
+    <!-- The account pop-out. A real <dialog>, so Escape closes it and the
+         rest of the window is inert while it is open. Filled by src/account.ts -->
+    <dialog id="account-dialog" class="sheet" aria-labelledby="account-title"></dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

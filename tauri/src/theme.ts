@@ -144,9 +144,60 @@ function setUpAccents(): void {
   applyAccent(storedAccent());
 }
 
+/* ---- the app's own font -------------------------------------------------
+ * Separate from the Word font in the Document card: this one is the app's
+ * text, that one is the document's. Nothing is downloaded — every stack
+ * below is already on the machine, so switching costs nothing and works
+ * offline. The stacks themselves live in styles.css; this only sets
+ * data-ui-font on <html> and remembers the choice.
+ */
+const UI_FONT_KEY = "labfiller.uiFont";
+const UI_FONTS = [
+  { name: "system", label: "System" },
+  { name: "serif", label: "Serif" },
+  { name: "rounded", label: "Rounded" },
+  { name: "mono", label: "Mono" },
+];
+
+function storedUiFont(): string {
+  try {
+    const value = localStorage.getItem(UI_FONT_KEY);
+    return UI_FONTS.some((f) => f.name === value) ? value! : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function applyUiFont(name: string): void {
+  // System is the default and needs no attribute, same as dark and blue.
+  if (name === "system") delete document.documentElement.dataset.uiFont;
+  else document.documentElement.dataset.uiFont = name;
+  try {
+    localStorage.setItem(UI_FONT_KEY, name);
+  } catch {
+    // Not fatal — the font still applies for this session.
+  }
+}
+
+function setUpUiFont(): void {
+  const menu = document.getElementById("ui-font");
+  if (!(menu instanceof HTMLSelectElement)) return;
+  for (const font of UI_FONTS) {
+    const option = document.createElement("option");
+    option.value = font.name;
+    option.textContent = font.label;
+    menu.append(option);
+  }
+  const chosen = storedUiFont();
+  menu.value = chosen;
+  applyUiFont(chosen);
+  menu.addEventListener("change", () => applyUiFont(menu.value));
+}
+
 /** Call once at startup. Restores the saved choices and wires the buttons. */
 export function setUpTheme(): void {
   setUpAccents();
+  setUpUiFont();
   apply(stored() ?? "dark");
   const button = document.getElementById("theme-toggle");
   button?.addEventListener("click", () => {

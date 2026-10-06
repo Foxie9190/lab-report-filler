@@ -100,8 +100,37 @@ export const THEMES: Record<string, Theme> = {
   },
 };
 
+/**
+ * The fonts offered for the document.
+ *
+ * All of them are already on Windows and macOS, so nothing is downloaded and
+ * nothing is embedded in the file. Pick one that isn't installed and Word
+ * silently substitutes another, which is why the list is short and boring —
+ * boring is what survives being emailed to a teacher.
+ *
+ * `css` is the same typeface for the on-screen preview, with fallbacks for
+ * the machine the app happens to be running on.
+ */
+export const DOC_FONTS: { name: string; css: string }[] = [
+  { name: "Calibri", css: '"Calibri", "Carlito", system-ui, sans-serif' },
+  { name: "Times New Roman", css: '"Times New Roman", "Liberation Serif", Times, serif' },
+  { name: "Arial", css: '"Arial", "Liberation Sans", Helvetica, sans-serif' },
+  { name: "Georgia", css: '"Georgia", "Gelasio", serif' },
+  { name: "Cambria", css: '"Cambria", "Caladea", Georgia, serif' },
+  { name: "Courier New", css: '"Courier New", Courier, monospace' },
+];
+
+export const DEFAULT_FONT = "Calibri";
+
+/** The CSS stack for a font name, for the preview. Falls back to the default. */
+export function fontCss(name: string): string {
+  return (DOC_FONTS.find((f) => f.name === name) ?? DOC_FONTS[0]).css;
+}
+
 export interface DocxOptions {
   theme: string;
+  /** One of DOC_FONTS. Anything else falls back to the default. */
+  font: string;
   /** Only used when theme is "Custom". A hex colour like "E91E63". */
   customColor?: string;
   showFormulas: boolean;
@@ -112,6 +141,7 @@ export interface DocxOptions {
 export function defaultDocxOptions(): DocxOptions {
   return {
     theme: "Teal",
+    font: DEFAULT_FONT,
     showFormulas: true,
     stripedRows: true,
     markUnanswered: true,
@@ -599,7 +629,18 @@ export async function buildDocx(
   const doc = new Document({
     creator: report.info.studentName.trim() || undefined,
     title: report.info.title || "Lab Report",
-    styles: { default: { document: { run: { font: "Courier New" } } } },
+    // One default font for every run, so no TextRun has to name it. Word's
+    // built-in Title and Heading styles bring their own, which is why the
+    // title looks different from the body.
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: DOC_FONTS.some((f) => f.name === options.font) ? options.font : DEFAULT_FONT,
+          },
+        },
+      },
+    },
     // Bullets are defined once here and used by name ("bullets") above.
     numbering: {
       config: [
