@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "test": "tsx test.ts",
     "test:math": "tsx test-math.ts",
-    "test:parse": "tsx test-parse.ts"
+    "test:parse": "tsx test-parse.ts",
+    "test:eval": "tsx test-eval.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
