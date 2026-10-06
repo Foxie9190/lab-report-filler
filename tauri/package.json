@@ -10,7 +10,8 @@
     "check": "tsc --noEmit",
     "tauri": "tauri",
     "test": "tsx test.ts",
-    "test:math": "tsx test-math.ts"
+    "test:math": "tsx test-math.ts",
+    "test:parse": "tsx test-parse.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
