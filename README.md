@@ -1,11 +1,15 @@
 # Lab Report Filler
 
-A desktop app for writing chemistry lab reports. Fill in the form, watch
+An app for writing chemistry lab reports. Fill in the form, watch
 the document build itself on the page beside you, let it do the math and
 show the work, and save a finished Word document you can turn in.
 
-Mac, Windows and Linux. No account, no sign-in. Nothing you type ever
-leaves your computer.
+Mac, Windows and Linux — or straight in your browser at
+**[foxie9190.github.io/lab-report-filler](https://foxie9190.github.io/lab-report-filler/)**,
+no install at all.
+
+Accounts are optional. Without one, nothing you type leaves your computer.
+With one, your labs follow you to your other computers.
 
 ![The app](docs/app-dark.png)
 
@@ -29,6 +33,12 @@ Debian or Ubuntu the `.deb` installs it properly:
 
 Both warnings above are because the app isn't signed with a paid
 developer certificate. Nothing is wrong with the download.
+
+**Or don't install anything** — [the web
+version](https://foxie9190.github.io/lab-report-filler/) is the same app
+in a browser tab. It writes the same Word file. The difference is where
+your labs live: in the browser you're using, rather than in a database the
+app can sync. See [The website](#the-website) below.
 
 ## What it makes
 
@@ -155,8 +165,75 @@ window switches with a circular sweep out from the button.
 **Five accent colours** — the dots next to it. Both choices are
 remembered next time you open the app.
 
+**Fonts.** Two separate choices, because they're two separate things.
+The **Font** dropdown next to the Word theme sets the font of the
+*document* — Calibri, Times New Roman, Arial, Georgia, Cambria or Courier
+New — and the page beside the form switches to it so you see it before you
+save. The dropdown in the header sets the font of the *app* — System,
+Serif, Rounded or Mono. Both are remembered, and neither affects the
+other.
+
 Rows, tables and questions slide in when added and fade out when deleted.
 If your system has "reduce motion" turned on, all of that is skipped.
+
+## Your labs are saved
+
+Everything saves itself as you type — there is no Save button for your
+work in progress (*Save as Word* is for handing in). A line in the header
+says *Saving…* then *Saved*.
+
+**My labs** in the tab bar lists everything you've written, newest first,
+with when you last touched it. Open one to carry on, duplicate one to run
+the same experiment again without retyping the setup, or delete one.
+Closing the app and opening it again puts you back in the lab you had
+open.
+
+In the installed app they live in a SQLite database in the app's own data
+folder. In the browser they live in that browser.
+
+## Accounts and sync
+
+Optional, and off until you ask for it — the button says **Sign in** in
+the corner of the header.
+
+With an account your labs are kept on a server as well as on your
+computer, so the same labs are there on a different one. It syncs when you
+sign in and whenever you press **Sync now**: your changes go up, anything
+new comes down, and if the same lab was edited in two places the newer
+edit wins.
+
+Without an account nothing is sent anywhere, and the app behaves exactly
+as it did before accounts existed.
+
+The server is a small Node program in `server/` — see
+[server/DEPLOY.md](server/DEPLOY.md) for running your own. Passwords are
+stored scrambled with a per-password salt, never as text, and every
+request for a lab is tied to the account that asked. If it's been quiet
+for a while the first sign-in can take up to a minute while the free
+hosting wakes the server up; the app says so rather than looking frozen.
+
+## Updates
+
+The app asks GitHub once a day whether there's a newer release, and if
+there is, a strip appears at the top with a link. Dismiss it and that
+version stays dismissed. If GitHub can't be reached you see nothing at
+all — it never gets in the way, and it never updates anything by itself.
+
+## The website
+
+The same app, built for a browser, published at
+[foxie9190.github.io/lab-report-filler](https://foxie9190.github.io/lab-report-filler/)
+by `.github/workflows/pages.yml` every time `main` changes.
+
+It's the same code — the browser build just leaves out the two things that
+need the installed app:
+
+- **Sync**, which reads the SQLite database a browser tab doesn't have
+- **The update strip**, which makes no sense on a page that is always the
+  newest version
+
+so labs typed on the website stay in that browser, and the header has a
+**Get the app** link instead of the account button.
 
 ## Troubleshooting
 
@@ -175,6 +252,14 @@ says what went wrong.
 **A blank answer printed "(not answered)"** — that's the toggle doing its
 job. Untick *Mark unanswered questions* before saving.
 
+**"Can't reach the server"** when signing in — the sync server is asleep or
+down. Your labs are safe on your computer either way; sync catches up next
+time it answers.
+
+**"Sync works in the installed app, not the browser preview"** — exactly
+that. The web version keeps labs in your browser; sync needs the installed
+app.
+
 ## Version 1 (Python)
 
 The original app, written in Python with [Flet](https://flet.dev). It
@@ -188,10 +273,10 @@ pip install -r requirements.txt
 python3 main.py desktop
 ```
 
-It has one thing version 2 doesn't: a **Trigonometry** tab — a scratch
-calculator with degrees mode, variables, a function palette and a keypad,
-kept separate from the report. It also checks GitHub for newer releases
-on launch; version 2 doesn't do that yet.
+It has one thing version 2 doesn't, yet: a **Trigonometry** tab — a
+scratch calculator with degrees mode, variables, a function palette and a
+keypad. Version 2 is growing a bigger version of that idea, a Math tab
+with its own areas (see [docs/ROADMAP-3.0.md](docs/ROADMAP-3.0.md)).
 
 Version 2 is where new work happens.
 
@@ -208,7 +293,10 @@ npm install
 npm run dev          # the UI in a browser tab, instant reload
 npm run tauri dev    # the real desktop window
 npm run tauri build  # installers in src-tauri/target/release/bundle
-npm test             # the backend tests
+npm run build        # the website build, into dist/
+npm test             # the chemistry tests
+npm run test:math    # the math tokenizer
+npm run test:parse   # the math parser
 npm run check        # TypeScript, no build
 ```
 
@@ -219,21 +307,40 @@ while working on the interface.
 ```
 tauri/
   index.html            the page shell
+  public/icon.png       the website's favicon
   src/
     main.ts             the form and everything you click
     preview.ts          draws the live page: Block[] -> HTML
     ui.ts               el(), card(), field(), the custom dropdown, animations
-    theme.ts            dark / light and the accent colours
+    theme.ts            dark / light, accent colours, the app's font
+    store.ts            saving: SQLite in the app, localStorage in a browser
+    cloud.ts            the API client and the sync routine
+    account.ts          the sign-in pop-out
+    updateBar.ts        the "there's a new version" strip
     saveFile.ts         the Save dialog and writing the file
     styles.css          all the styling; every colour is a CSS variable
     backend/
       models.ts         the shared data shapes, including Block
       chem.ts           the chemistry math
+      db.ts             the SQLite schema and every query
       document.ts       LabReport -> Block[]: what goes in the report
       report.ts         builds the Markdown preview
-      exportDocx.ts     builds the Word document and holds the themes
+      exportDocx.ts     builds the Word document, the themes and the fonts
+      updates.ts        asks GitHub for the newest release
+      math/
+        tokenize.ts     text -> tokens
+        parse.ts        tokens -> a tree
   src-tauri/            the Rust side: window, plugins, permissions
-  test.ts               the backend tests
+  test.ts               the chemistry tests
+  test-math.ts          the tokenizer tests
+  test-parse.ts         the parser tests
+
+server/                 the accounts and sync API (Node, Express, MongoDB)
+  src/server.ts         the routes
+  src/auth.ts           signing up, signing in, sessions
+  src/labs.ts           reading and writing labs, always filtered by account
+  src/db.ts             the MongoDB connection and its indexes
+  DEPLOY.md             how to host it
 ```
 
 The interface and the backend only talk through the types in `models.ts`.
@@ -289,3 +396,13 @@ git push origin py-v1.2.1
 `.github/workflows/build.yml` builds the three Python bundles. Version 1
 apps compare their own `VERSION` with the newest release tag to decide
 whether to show their update strip, so those numbers have to match.
+
+**The website** needs no tag. `.github/workflows/pages.yml` rebuilds and
+republishes it on every push to `main`. It has to be switched on once, in
+**Settings → Pages → Source: GitHub Actions** — the workflow isn't allowed
+to do that itself.
+
+**The server** redeploys itself when `main` changes, if you've connected
+the repo to a host. `server/DEPLOY.md` has the setup, and
+`tauri/.env.production` holds the address the built app talks to — change
+that line if the server moves.
