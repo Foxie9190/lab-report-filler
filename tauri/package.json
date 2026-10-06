@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "tauri": "tauri",
-    "test": "tsx test.ts"
+    "test": "tsx test.ts",
+    "test:math": "tsx test-math.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
