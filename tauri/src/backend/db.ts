@@ -57,6 +57,19 @@ const SCHEMA = [
      question  TEXT NOT NULL DEFAULT '',
      answer    TEXT NOT NULL DEFAULT ''
    )`,
+  /*
+   * Where sync keeps its place: the time it last heard from the server.
+   *
+   * This lived in the browser's localStorage until it caused the obvious
+   * problem — rename the database away and the note survived it, so the app
+   * had no labs but still believed it was up to date, and never asked for
+   * the ones the server was holding. In here it shares the file's fate:
+   * lose the labs, lose the note, ask for everything.
+   */
+  `CREATE TABLE IF NOT EXISTS sync_state (
+     key   TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   )`,
 ];
 
 let db: Database | null = null;
@@ -420,4 +433,41 @@ export async function cloudIdFor(id: number): Promise<string | null> {
     [id],
   );
   return rows[0]?.cloud_id ?? null;
+}
+
+// ---- where sync left off ----------------------------------------------------
+
+const MARKER = "syncedThrough";
+
+/** The time sync last heard from the server, or null if it never has. */
+export async function syncedThrough(): Promise<string | null> {
+  const database = await openDatabase();
+  const rows = await database.select<{ value: string }[]>(
+    "SELECT value FROM sync_state WHERE key = $1",
+    [MARKER],
+  );
+  return rows.length > 0 ? rows[0].value : null;
+}
+
+/** Move the marker, or pass null to forget it and pull everything next time. */
+export async function setSyncedThrough(value: string | null): Promise<void> {
+  const database = await openDatabase();
+  if (value === null) {
+    await database.execute("DELETE FROM sync_state WHERE key = $1", [MARKER]);
+    return;
+  }
+  // ON CONFLICT: one row, written whether or not it was already there.
+  await database.execute(
+    `INSERT INTO sync_state (key, value) VALUES ($1, $2)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [MARKER, value],
+  );
+}
+
+/** Does this database hold any labs at all? Used to tell a continuing
+ *  install from a fresh or emptied one. */
+export async function hasAnyLab(): Promise<boolean> {
+  const database = await openDatabase();
+  const rows = await database.select<{ n: number }[]>("SELECT COUNT(*) AS n FROM lab");
+  return (rows[0]?.n ?? 0) > 0;
 }

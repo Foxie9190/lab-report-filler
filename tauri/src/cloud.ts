@@ -19,12 +19,15 @@
 
 import {
   cloudIdFor,
+  hasAnyLab,
   labIdForCloud,
   labsToPush,
   labUpdatedAt,
   loadLab,
   markLabSynced,
   saveLabFromServer,
+  setSyncedThrough,
+  syncedThrough,
 } from "./backend/db";
 import type { LabReport } from "./backend/models";
 import { makeDataTable, makeLabReport } from "./backend/models";
@@ -33,7 +36,7 @@ import { deleteLab as deleteLocalLab } from "./backend/db";
 const API_KEY = "labfiller.apiUrl";
 const TOKEN_KEY = "labfiller.token";
 const ACCOUNT_KEY = "labfiller.account";
-const SINCE_KEY = "labfiller.syncedThrough";
+const SINCE_KEY = "labfiller.syncedThrough"; // where the marker USED to live
 
 /*
  * Where the API lives.
@@ -163,7 +166,42 @@ function keep(token: string, account: Account): void {
 function forget(): void {
   remember(TOKEN_KEY, null);
   remember(ACCOUNT_KEY, null);
-  remember(SINCE_KEY, null); // a different account's labs are a clean slate
+  remember(SINCE_KEY, null); // the old home, cleared for anyone upgrading
+  clearMarker(); // a different account's labs are a clean slate
+}
+
+/**
+ * Forget where sync got to.
+ *
+ * Deliberately not awaited: the browser preview has no database to clear,
+ * and both callers — a dead session and signing out — have to finish either
+ * way. A marker left behind is harmless next to that; the next sign-in
+ * clears it again.
+ */
+function clearMarker(): void {
+  if (!("__TAURI_INTERNALS__" in window)) return;
+  void setSyncedThrough(null).catch(() => {});
+}
+
+/**
+ * Where sync left off — now kept in the database, beside the labs it
+ * describes.
+ *
+ * The one-time move from localStorage only applies to a database that
+ * already holds labs. An empty one is either brand new or has just lost
+ * everything, and both of those want the whole account pulled down rather
+ * than an old note telling them there is nothing to fetch.
+ */
+async function marker(): Promise<string | null> {
+  const stored = await syncedThrough();
+  if (stored !== null) return stored;
+
+  const old = remembered(SINCE_KEY);
+  if (old === null) return null;
+  remember(SINCE_KEY, null);
+  if (!(await hasAnyLab())) return null;
+  await setSyncedThrough(old);
+  return old;
 }
 
 export async function signUp(email: string, password: string): Promise<Account> {
@@ -307,7 +345,7 @@ export async function syncNow(): Promise<SyncReport> {
   }
 
   // ---- pull
-  const since = remembered(SINCE_KEY);
+  const since = await marker();
   const query = since ? `?since=${encodeURIComponent(since)}` : "";
   const out = await ask<{ labs: WireLab[]; serverTime: string }>(`/labs${query}`);
 
@@ -336,7 +374,7 @@ export async function syncNow(): Promise<SyncReport> {
   // Only now, with everything applied, move the marker. If the loop had
   // thrown, the next sync would ask for the same window again rather than
   // skipping past labs it never wrote.
-  remember(SINCE_KEY, out.serverTime);
+  await setSyncedThrough(out.serverTime);
   return report;
 }
 
