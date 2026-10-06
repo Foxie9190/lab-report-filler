@@ -31,7 +31,7 @@ Render → **New** → **Web Service** → connect the GitHub repo
 
 | Setting | Value |
 | --- | --- |
-| Name | `lab-report-filler-api` |
+| Name | `lab-report-filler` |
 | Language | Node |
 | Branch | `main` |
 | Root Directory | `server` |
@@ -40,8 +40,8 @@ Render → **New** → **Web Service** → connect the GitHub repo
 | Instance Type | Free |
 | Health Check Path | `/health` |
 
-The name matters: it decides the address. `lab-report-filler-api` becomes
-`https://lab-report-filler-api.onrender.com`, which is what
+The name matters: it decides the address. `lab-report-filler` becomes
+`https://lab-report-filler.onrender.com`, which is what
 `tauri/.env.production` already points at. A different name means editing
 that one line.
 
@@ -63,7 +63,7 @@ of those should be treated as leaked and changed in Atlas.
 
 ## 4. Check it
 
-Open `https://lab-report-filler-api.onrender.com/health`. The answer should
+Open `https://lab-report-filler.onrender.com/health`. The answer should
 be:
 
 ```json
