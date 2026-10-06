@@ -48,11 +48,10 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/
         run: npm run build
 
+      # Needs Pages switched on first: Settings -> Pages -> Source: GitHub
+      # Actions. The workflow can't do that itself — creating a Pages site is
+      # not something the run's own token is allowed to do.
       - uses: actions/configure-pages@v5
-        with:
-          # Turns Pages on by itself if it isn't already, instead of failing
-          # with "Get Pages site failed" and making someone go and click it.
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
