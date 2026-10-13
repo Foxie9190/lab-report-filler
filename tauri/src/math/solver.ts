@@ -58,6 +58,28 @@ function tidy(value: number): string {
   return String(rounded);
 }
 
+/** How a solved equation is kept on the page. */
+interface SavedSolution {
+  steps: string[];
+  variable: string;
+  value: number;
+}
+
+/** Read one back, or null if it isn't one. */
+function readSolution(text: string): SavedSolution | null {
+  try {
+    const parsed = JSON.parse(text) as Partial<SavedSolution>;
+    if (!Array.isArray(parsed.steps) || typeof parsed.variable !== "string") return null;
+    return {
+      steps: parsed.steps,
+      variable: parsed.variable,
+      value: typeof parsed.value === "number" ? parsed.value : NaN,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function buildSolver(host: HTMLElement, shared: Shared): void {
   const input = el("input", {
     type: "text",
@@ -114,6 +136,17 @@ export function buildSolver(host: HTMLElement, shared: Shared): void {
     working.scrollTop = working.scrollHeight;
   }
 
+  /** An equation that couldn't be solved, and why. */
+  function showRefused(equation: string, message: string): void {
+    const block = el("div", { class: "solve-block bad" }, [
+      el("div", { class: "calc-asked" }, [equation]),
+      el("div", { class: "solve-answer" }, [message]),
+    ]);
+    if (working.contains(hint)) working.replaceChildren();
+    working.append(block);
+    working.scrollTop = working.scrollHeight;
+  }
+
   function run(): void {
     const text = input.value.trim();
     if (text === "") return;
@@ -142,17 +175,30 @@ export function buildSolver(host: HTMLElement, shared: Shared): void {
       const answer = solve(left, right, variable, shared.env);
       show(text, answer.steps, answer.variable, answer.value);
 
+      // Onto the page, as JSON rather than as text. The working is what
+      // matters here, and picking the answer back out of a printed step
+      // would mean parsing our own output — which breaks the moment the
+      // wording changes.
+      shared.page.lines.push({
+        kind: "solve",
+        input: text,
+        output: JSON.stringify({
+          steps: answer.steps,
+          variable: answer.variable,
+          value: answer.value,
+        } satisfies SavedSolution),
+        ok: true,
+      });
+
       // Remember it, so the next line can use it and the graph can draw it.
       shared.env.variables.set(answer.variable, answer.value);
+      shared.changed();
       input.value = "";
     } catch (err) {
-      const block = el("div", { class: "solve-block bad" }, [
-        el("div", { class: "calc-asked" }, [text]),
-        el("div", { class: "solve-answer" }, [(err as Error).message]),
-      ]);
-      if (working.contains(hint)) working.replaceChildren();
-      working.append(block);
-      working.scrollTop = working.scrollHeight;
+      const message = (err as Error).message;
+      showRefused(text, message);
+      shared.page.lines.push({ kind: "solve", input: text, output: message, ok: false });
+      shared.changed();
     }
   }
 
@@ -169,6 +215,8 @@ export function buildSolver(host: HTMLElement, shared: Shared): void {
   const clear = el("button", { class: "ghost small", type: "button" }, ["Clear"]);
   clear.addEventListener("click", () => {
     working.replaceChildren(hint);
+    shared.page.lines = shared.page.lines.filter((line) => line.kind !== "solve");
+    shared.changed();
     input.focus();
   });
 
@@ -198,6 +246,20 @@ export function buildSolver(host: HTMLElement, shared: Shared): void {
       ]),
     ]),
   );
+
+  // Whatever was solved on this page when it was last open. The working is
+  // put back as it was rather than solved again: what you see is what you
+  // handed in, even if the solver changes later.
+  for (const line of shared.page.lines) {
+    if (line.kind !== "solve") continue;
+    if (!line.ok) {
+      showRefused(line.input, line.output);
+      continue;
+    }
+    const saved = readSolution(line.output);
+    if (saved === null) continue; // written by something older; skip it quietly
+    show(line.input, saved.steps, saved.variable, saved.value);
+  }
 
   shared.whenShown(() => input.focus());
 }

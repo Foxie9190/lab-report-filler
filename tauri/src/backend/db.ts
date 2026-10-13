@@ -1,5 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import type { LabReport } from "./models";
+import type { MathPage, MathPageSummary } from "./math/page";
 import { makeDataTable, makeLabReport } from "./models";
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS lab (
@@ -57,6 +58,43 @@ const SCHEMA = [
      question  TEXT NOT NULL DEFAULT '',
      answer    TEXT NOT NULL DEFAULT ''
    )`,
+  /*
+   * A page of maths, and the lines worked on it.
+   *
+   * Same shape as a lab and its tables: a parent row, children that point
+   * at it, and ON DELETE CASCADE so deleting the page takes the lines with
+   * it rather than leaving orphans behind.
+   *
+   * `variables` is JSON rather than its own table. A table would be the
+   * tidier answer if anything ever queried inside it — nothing does; the
+   * page is read and written whole.
+   */
+  `CREATE TABLE IF NOT EXISTS math_page (
+     id          INTEGER PRIMARY KEY AUTOINCREMENT,
+     title       TEXT NOT NULL DEFAULT '',
+     degrees     INTEGER NOT NULL DEFAULT 1,
+     variables   TEXT NOT NULL DEFAULT '[]',
+     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+   )`,
+
+  `CREATE TABLE IF NOT EXISTS math_line (
+     id        INTEGER PRIMARY KEY AUTOINCREMENT,
+     page_id   INTEGER NOT NULL REFERENCES math_page(id) ON DELETE CASCADE,
+     position  INTEGER NOT NULL,
+     kind      TEXT NOT NULL,
+     input     TEXT NOT NULL DEFAULT '',
+     output    TEXT NOT NULL DEFAULT '',
+     ok        INTEGER NOT NULL DEFAULT 1
+   )`,
+
+  `CREATE TABLE IF NOT EXISTS math_curve (
+     id        INTEGER PRIMARY KEY AUTOINCREMENT,
+     page_id   INTEGER NOT NULL REFERENCES math_page(id) ON DELETE CASCADE,
+     position  INTEGER NOT NULL,
+     text      TEXT NOT NULL DEFAULT ''
+   )`,
+
   /*
    * Where sync keeps its place: the time it last heard from the server.
    *
@@ -470,4 +508,133 @@ export async function hasAnyLab(): Promise<boolean> {
   const database = await openDatabase();
   const rows = await database.select<{ n: number }[]>("SELECT COUNT(*) AS n FROM lab");
   return (rows[0]?.n ?? 0) > 0;
+}
+
+// ---- pages of maths ---------------------------------------------------------
+//
+// The same four moves as labs — list, load, save, delete — against a page
+// instead of a report. Saving replaces the children rather than working out
+// which line changed: a page is a handful of rows, and "delete and re-insert"
+// cannot drift out of step with what is on screen.
+
+
+/** Every saved page, most recently worked first. */
+export async function listMathPages(): Promise<MathPageSummary[]> {
+  const database = await openDatabase();
+  const rows = await database.select<
+    { id: number; title: string; updated_at: string; lines: number; preview: string | null }[]
+  >(
+    `SELECT p.id, p.title, p.updated_at,
+            (SELECT COUNT(*) FROM math_line WHERE page_id = p.id) AS lines,
+            -- the first thing worked on the page, so a page with no name is
+            -- still recognisable in the list
+            COALESCE(
+              (SELECT input FROM math_line  WHERE page_id = p.id ORDER BY position LIMIT 1),
+              (SELECT 'y = ' || text FROM math_curve WHERE page_id = p.id AND text <> '' ORDER BY position LIMIT 1)
+            ) AS preview
+     FROM math_page p
+     ORDER BY p.updated_at DESC`,
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    preview: r.preview ?? "",
+    lineCount: r.lines,
+    updatedAt: r.updated_at,
+  }));
+}
+
+/** Read one page back whole. Null if it isn't there any more. */
+export async function loadMathPage(id: number): Promise<MathPage | null> {
+  const database = await openDatabase();
+  const pages = await database.select<
+    { title: string; degrees: number; variables: string }[]
+  >("SELECT title, degrees, variables FROM math_page WHERE id = $1", [id]);
+  if (pages.length === 0) return null;
+
+  const lines = await database.select<
+    { kind: string; input: string; output: string; ok: number }[]
+  >(
+    "SELECT kind, input, output, ok FROM math_line WHERE page_id = $1 ORDER BY position",
+    [id],
+  );
+  const curves = await database.select<{ text: string }[]>(
+    "SELECT text FROM math_curve WHERE page_id = $1 ORDER BY position",
+    [id],
+  );
+
+  let variables: [string, number][] = [];
+  try {
+    // Written by this app, but a half-written file or an older version
+    // shouldn't take the whole page down with it.
+    variables = JSON.parse(pages[0].variables) as [string, number][];
+  } catch {
+    variables = [];
+  }
+
+  return {
+    title: pages[0].title,
+    degrees: pages[0].degrees === 1,
+    variables,
+    lines: lines.map((l) => ({
+      kind: l.kind === "solve" ? "solve" : "calc",
+      input: l.input,
+      output: l.output,
+      ok: l.ok === 1,
+    })),
+    curves: curves.map((c) => ({ text: c.text })),
+  };
+}
+
+/** Save. Pass an id to overwrite, or null for a new page. Returns the id. */
+export async function saveMathPage(page: MathPage, id: number | null = null): Promise<number> {
+  const database = await openDatabase();
+  const variables = JSON.stringify(page.variables);
+
+  if (id === null) {
+    const result = await database.execute(
+      "INSERT INTO math_page (title, degrees, variables) VALUES ($1, $2, $3)",
+      [page.title, page.degrees ? 1 : 0, variables],
+    );
+    id = Number(result.lastInsertId);
+  } else {
+    await database.execute(
+      `UPDATE math_page SET title = $1, degrees = $2, variables = $3,
+                            updated_at = datetime('now')
+       WHERE id = $4`,
+      [page.title, page.degrees ? 1 : 0, variables, id],
+    );
+    await database.execute("DELETE FROM math_line WHERE page_id = $1", [id]);
+    await database.execute("DELETE FROM math_curve WHERE page_id = $1", [id]);
+  }
+
+  for (const [at, line] of page.lines.entries()) {
+    await database.execute(
+      `INSERT INTO math_line (page_id, position, kind, input, output, ok)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, at, line.kind, line.input, line.output, line.ok ? 1 : 0],
+    );
+  }
+  for (const [at, curve] of page.curves.entries()) {
+    await database.execute(
+      "INSERT INTO math_curve (page_id, position, text) VALUES ($1, $2, $3)",
+      [id, at, curve.text],
+    );
+  }
+
+  return id;
+}
+
+/** Delete a page and everything on it. */
+export async function deleteMathPage(id: number): Promise<void> {
+  const database = await openDatabase();
+  await database.execute("DELETE FROM math_page WHERE id = $1", [id]);
+}
+
+/** Copy a page, for a second attempt at the same homework. */
+export async function duplicateMathPage(id: number): Promise<number | null> {
+  const page = await loadMathPage(id);
+  if (page === null) return null;
+  page.title = `${page.title || "Maths"} (copy)`;
+  return saveMathPage(page, null);
 }

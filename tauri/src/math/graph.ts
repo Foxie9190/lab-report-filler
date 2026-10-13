@@ -252,6 +252,7 @@ export function buildGraph(host: HTMLElement, shared: Shared): void {
       problem.hidden = curve.error === null;
       problem.textContent = curve.error ?? "";
       draw();
+      saveCurves();
     }
     input.addEventListener("input", refresh);
 
@@ -260,6 +261,7 @@ export function buildGraph(host: HTMLElement, shared: Shared): void {
       if (at !== -1) curves.splice(at, 1);
       row.remove();
       draw();
+      saveCurves();
     });
 
     list.append(row);
@@ -267,10 +269,17 @@ export function buildGraph(host: HTMLElement, shared: Shared): void {
     problem.textContent = curve.error ?? "";
   }
 
+  /** Keep the page's copy of the lines in step with what's on screen. */
+  function saveCurves(): void {
+    shared.page.curves = curves.map((c) => ({ text: c.text }));
+    shared.changed();
+  }
+
   const add = el("button", { class: "ghost small", type: "button" }, ["Add a line"]);
   add.addEventListener("click", () => {
     addCurve("");
     draw();
+    saveCurves();
     (list.querySelector(".curve-row:last-child input") as HTMLInputElement | null)?.focus();
   });
 
@@ -377,6 +386,11 @@ export function buildGraph(host: HTMLElement, shared: Shared): void {
   ]);
 
   host.append(box);
-  addCurve("x^2 - 3");
+
+  // The lines this page had when it was last open. A page with none gets an
+  // empty box to type in rather than a blank screen.
+  if (shared.page.curves.length === 0) addCurve("");
+  else for (const saved of shared.page.curves) addCurve(saved.text);
+
   shared.whenShown(() => draw());
 }

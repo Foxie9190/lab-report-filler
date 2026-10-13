@@ -1451,3 +1451,30 @@ button.small { font-size: 12px; padding: 5px 10px; }
   text-align: center;
   font-family: ui-monospace, Menlo, monospace !important;
 }
+
+/* The bar above the Math tab's inner tabs: what this page is called, and
+   whether it's safely saved. Quiet on purpose — it's status, not furniture. */
+.page-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.page-title {
+  width: auto !important;
+  flex: 1 1 260px;
+  max-width: 420px;
+  font-weight: 600;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+.page-title:hover { border-color: var(--line) !important; }
+.page-title:focus {
+  background: var(--field) !important;
+  border-color: var(--action) !important;
+}
+.page-bar .save-state { font-size: 12px; color: var(--muted); }
+
+@media (max-width: 700px) {
+  .page-title { flex: 1 1 auto; }
+}

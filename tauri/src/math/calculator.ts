@@ -56,11 +56,16 @@ export function buildCalculator(host: HTMLElement, shared: Shared): void {
   angles.addEventListener("click", () => {
     shared.env.degrees = !shared.env.degrees;
     angles.textContent = shared.env.degrees ? "Degrees" : "Radians";
+    shared.changed();
   });
 
   const clear = el("button", { class: "ghost small", type: "button" }, ["Clear"]);
   clear.addEventListener("click", () => {
     lines.replaceChildren(empty);
+    // Clear means clear: the saved page loses these lines as well, or they
+    // would reappear the next time the page was opened.
+    shared.page.lines = shared.page.lines.filter((line) => line.kind !== "calc");
+    shared.changed();
     input.focus();
   });
 
@@ -100,28 +105,43 @@ export function buildCalculator(host: HTMLElement, shared: Shared): void {
       chip.addEventListener("click", () => {
         shared.env.variables.delete(name);
         showVariables();
+        shared.changed();
       });
       vars.append(chip);
     }
+  }
+
+  /** Put one worked line on screen. Used by a fresh run and by a reopened page. */
+  function addLine(asked: string, answer: string, worked: boolean): void {
+    const line = el("div", { class: "calc-line" }, [
+      el("div", { class: "calc-asked" }, [asked]),
+      el("div", { class: "calc-answer" }, [answer]),
+    ]);
+    if (!worked) line.classList.add("bad");
+    if (lines.contains(empty)) lines.replaceChildren();
+    lines.append(line);
+    // Newest at the bottom, like working down a page.
+    lines.scrollTop = lines.scrollHeight;
   }
 
   function run(): void {
     const text = input.value.trim();
     if (text === "") return;
 
-    const line = el("div", { class: "calc-line" }, [el("div", { class: "calc-asked" }, [text])]);
+    let answer: string;
+    let worked = true;
     try {
-      const answer = calculate(text, shared.env);
-      line.append(el("div", { class: "calc-answer" }, [`= ${tidy(answer)}`]));
+      answer = `= ${tidy(calculate(text, shared.env))}`;
     } catch (err) {
-      line.classList.add("bad");
-      line.append(el("div", { class: "calc-answer" }, [(err as Error).message]));
+      answer = (err as Error).message;
+      worked = false;
     }
 
-    if (lines.contains(empty)) lines.replaceChildren();
-    lines.append(line);
-    // Newest at the bottom, like working down a page.
-    lines.scrollTop = lines.scrollHeight;
+    addLine(text, answer, worked);
+    // Onto the page, so it's still here tomorrow.
+    shared.page.lines.push({ kind: "calc", input: text, output: answer, ok: worked });
+    shared.changed();
+
     input.value = "";
     showVariables();
   }
@@ -158,6 +178,12 @@ export function buildCalculator(host: HTMLElement, shared: Shared): void {
   ]);
 
   host.append(box);
+
+  // Whatever was on this page when it was last open.
+  for (const line of shared.page.lines) {
+    if (line.kind === "calc") addLine(line.input, line.output, line.ok);
+  }
+
   shared.whenShown(() => {
     angles.textContent = shared.env.degrees ? "Degrees" : "Radians";
     showVariables();

@@ -12,8 +12,9 @@
 
 import type { LabReport } from "./backend/models";
 import type { LabSummary } from "./backend/db";
+import type { MathPage, MathPageSummary } from "./backend/math/page";
 
-export type { LabSummary };
+export type { LabSummary, MathPageSummary };
 
 /** True inside the Tauri app, false in a plain browser tab. */
 function inTauri(): boolean {
@@ -128,6 +129,115 @@ export function rememberLastLab(id: number | null): void {
 export function lastLabId(): number | null {
   try {
     const raw = localStorage.getItem(LAST);
+    const id = raw === null ? NaN : Number(raw);
+    return Number.isInteger(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---- pages of maths ---------------------------------------------------------
+// Same two homes as labs: SQLite in the app, one localStorage key in a
+// browser tab. The Math tab calls these and never knows which it got.
+
+const MATH_KEY = "labfiller.mathPages";
+const LAST_MATH = "labfiller.lastMathPage";
+
+interface StoredPage {
+  id: number;
+  page: MathPage;
+  updatedAt: string;
+}
+
+function readPages(): StoredPage[] {
+  try {
+    const raw = localStorage.getItem(MATH_KEY);
+    return raw ? (JSON.parse(raw) as StoredPage[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePages(pages: StoredPage[]): void {
+  try {
+    localStorage.setItem(MATH_KEY, JSON.stringify(pages));
+  } catch {
+    // Storage full or blocked. Nothing useful to do about it here.
+  }
+}
+
+/** Every saved page, most recently worked first. */
+export async function listMathPages(): Promise<MathPageSummary[]> {
+  if (inTauri()) return (await sqlite()).listMathPages();
+  return readPages()
+    .slice()
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((p) => ({
+      id: p.id,
+      title: p.page.title,
+      preview:
+        p.page.lines.find((line) => line.input.trim() !== "")?.input ??
+        (p.page.curves.find((c) => c.text.trim() !== "")
+          ? `y = ${p.page.curves.find((c) => c.text.trim() !== "")!.text}`
+          : ""),
+      lineCount: p.page.lines.length,
+      updatedAt: p.updatedAt,
+    }));
+}
+
+/** Read one page back. Null if it isn't there any more. */
+export async function loadMathPage(id: number): Promise<MathPage | null> {
+  if (inTauri()) return (await sqlite()).loadMathPage(id);
+  const found = readPages().find((p) => p.id === id);
+  // A copy, so editing the screen can't quietly rewrite the saved version.
+  return found ? (structuredClone(found.page) as MathPage) : null;
+}
+
+/** Save. Pass an id to overwrite, or null for a new page. Returns the id. */
+export async function saveMathPage(page: MathPage, id: number | null): Promise<number> {
+  if (inTauri()) return (await sqlite()).saveMathPage(page, id);
+  const pages = readPages();
+  const entry = { page: structuredClone(page) as MathPage, updatedAt: new Date().toISOString() };
+  if (id === null) {
+    id = pages.reduce((most, p) => Math.max(most, p.id), 0) + 1;
+    pages.push({ id, ...entry });
+  } else {
+    const at = pages.findIndex((p) => p.id === id);
+    if (at === -1) pages.push({ id, ...entry });
+    else pages[at] = { id, ...entry };
+  }
+  writePages(pages);
+  return id;
+}
+
+/** Delete a page and everything on it. */
+export async function deleteMathPage(id: number): Promise<void> {
+  if (inTauri()) return (await sqlite()).deleteMathPage(id);
+  writePages(readPages().filter((p) => p.id !== id));
+}
+
+/** Copy a page, for a second attempt at the same homework. */
+export async function duplicateMathPage(id: number): Promise<number | null> {
+  if (inTauri()) return (await sqlite()).duplicateMathPage(id);
+  const page = await loadMathPage(id);
+  if (page === null) return null;
+  page.title = `${page.title || "Maths"} (copy)`;
+  return saveMathPage(page, null);
+}
+
+/** Which page was open last, so the tab reopens where you left it. */
+export function rememberLastMathPage(id: number | null): void {
+  try {
+    if (id === null) localStorage.removeItem(LAST_MATH);
+    else localStorage.setItem(LAST_MATH, String(id));
+  } catch {
+    // Not fatal — the tab just starts a fresh page next time.
+  }
+}
+
+export function lastMathPageId(): number | null {
+  try {
+    const raw = localStorage.getItem(LAST_MATH);
     const id = raw === null ? NaN : Number(raw);
     return Number.isInteger(id) ? id : null;
   } catch {
