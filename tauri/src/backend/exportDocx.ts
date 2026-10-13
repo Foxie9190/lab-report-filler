@@ -17,9 +17,10 @@
  * change.
  */
 
-import type { LabReport } from "./models";
-import { pretty } from "./models";
+import type { Block, LabReport } from "./models";
+import { buildDocument } from "./document";
 import {
+  ImageRun,
   AlignmentType,
   BorderStyle,
   Document,
@@ -245,65 +246,32 @@ export function customTheme(hex: string): Theme {
  * Returns a Uint8Array rather than a file path, so that saving stays the
  * UI's job — same split as the Python version, where this returned bytes.
  */
-export async function buildDocx(
-  report: LabReport,
+/**
+ * Word objects from a list of blocks.
+ *
+ * This is the second of the two renderers that read the SAME block list —
+ * preview.ts is the other. Neither knows anything about a LabReport, which
+ * is what makes it impossible for the page you see and the file you save to
+ * disagree: there is one description of the document, and two ways of
+ * drawing it.
+ *
+ * It also means anything that can produce blocks gets a Word file for free.
+ * A page of maths does exactly that; see math/sheet.ts.
+ */
+export async function blocksToDocx(
+  blocks: Block[],
   options: DocxOptions = defaultDocxOptions(),
+  meta: { title: string; creator?: string } = { title: "Document" },
 ): Promise<Uint8Array> {
   const theme =
     options.theme === CUSTOM && options.customColor
       ? customTheme(options.customColor)
       : (THEMES[options.theme] ?? THEMES.Teal);
+
   // Paragraphs AND tables go in here, so the type allows both.
   const children: (Paragraph | Table)[] = [];
-  children.push(
-    new Paragraph({
-      heading: HeadingLevel.TITLE,
-      children: [
-        new TextRun({
-          text: report.info.title || "Lab Report",
-          bold: true,
-          color: theme.dark,
-          size: 40,
-        }),
-      ],
-    }),
-  );
-  const who = [
-    report.info.studentName,
-    report.info.course,
-    report.info.teacher,
-    report.info.date,
-  ]
-    .map((s) => s.trim())
-    .filter((s) => s !== "")
-    .join(" | ");
-  if (who !== "") {
-    children.push(
-      new Paragraph({
-        children: [new TextRun({ text: who, color: theme.muted, size: 22 })],
-      }),
-    );
-  }
-  if (report.info.partners.trim() !== "") {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: "Lab Partners: ",
-            bold: true,
-            color: theme.ink,
-            size: 22,
-          }),
-          new TextRun({
-            text: report.info.partners.trim(),
-            color: theme.ink,
-            size: 22,
-          }),
-        ],
-      }),
-    );
-  }
-  // ---- small helpers -------------------------------------------------------
+
+  // ---- the pieces, one function per kind of block --------------------------
 
   // A section heading like "Material List": coloured, with a line under it.
   function heading(text: string): Paragraph {
@@ -331,63 +299,6 @@ export async function buildDocx(
       numbering: { reference: "bullets", level: 0 },
       children: [new TextRun({ text, color: theme.ink, size: 22 })],
     });
-  }
-
-  // A text box keeps only its non-blank lines, trimmed.
-  function lines(text: string): string[] {
-    return text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l !== "");
-  }
-
-  // ---- materials and safety -------------------------------------------------
-  // One bullet per line. A box with nothing in it is left out completely.
-  const lists = [
-    { title: "Material List", text: report.content.materials },
-    { title: "Safety Precautions", text: report.content.safety },
-  ];
-  for (const list of lists) {
-    const items = lines(list.text);
-    if (items.length === 0) continue;
-    children.push(heading(list.title));
-    for (const item of items) children.push(bullet(item));
-  }
-
-  // ---- data tables ----------------------------------------------------------
-  // Rows where every cell is blank are dropped (the leftover empty row you
-  // didn't fill in). A table with nothing typed anywhere is skipped.
-  const tables = report.tables
-    .map((t) => ({
-      ...t,
-      rows: t.rows.filter((row) => row.some((cell) => cell.trim() !== "")),
-    }))
-    .filter(
-      (t) =>
-        t.headers.length > 0 && (t.rows.length > 0 || t.title.trim() !== ""),
-    );
-
-  if (tables.length > 0) {
-    children.push(heading("Data"));
-    for (const table of tables) {
-      if (table.title.trim() !== "") {
-        children.push(
-          new Paragraph({
-            spacing: { before: 160, after: 80 },
-            children: [
-              new TextRun({
-                text: table.title.trim(),
-                bold: true,
-                color: theme.dark,
-                size: 22,
-              }),
-            ],
-          }),
-        );
-      }
-      children.push(dataTable(table.headers, table.rows));
-      children.push(new Paragraph({ children: [] })); // a little gap after
-    }
   }
 
   // A real Word table. Word wants widths twice: once for the columns
@@ -457,81 +368,6 @@ export async function buildDocx(
     });
   }
 
-  // ---- calculations ---------------------------------------------------------
-  // Each one is a shaded box with a coloured bar down the left side:
-  // name, the formula (optional), the shown work, then the answer.
-  if (report.calculations.length > 0) {
-    children.push(heading("Calculations"));
-    for (const calc of report.calculations) {
-      const inside: Paragraph[] = [
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: calc.name,
-              bold: true,
-              color: theme.dark,
-              size: 22,
-            }),
-          ],
-        }),
-      ];
-      if (options.showFormulas && calc.formula.trim() !== "") {
-        inside.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: calc.formula,
-                italics: true,
-                color: theme.muted,
-                size: 20,
-              }),
-            ],
-          }),
-        );
-      }
-      if (calc.work && calc.work.trim() !== "") {
-        inside.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "Work: ",
-                bold: true,
-                color: theme.ink,
-                size: 20,
-              }),
-              new TextRun({
-                text: calc.work.trim(),
-                color: theme.ink,
-                size: 20,
-              }),
-            ],
-          }),
-        );
-      }
-      inside.push(
-        new Paragraph({
-          spacing: { before: 60 },
-          children: [
-            new TextRun({
-              text: "Answer: ",
-              bold: true,
-              color: theme.ink,
-              size: 22,
-            }),
-            new TextRun({
-              text: pretty(calc),
-              bold: true,
-              color: theme.accent,
-              size: 24,
-            }),
-          ],
-        }),
-      );
-      children.push(box(inside));
-      children.push(new Paragraph({ children: [] }));
-    }
-  }
-
   // A one-cell table used as a box. (Word has no "box" object — this is
   // the usual trick.) Light fill, and a thick accent line on the left only.
   function box(content: Paragraph[]): Table {
@@ -568,67 +404,224 @@ export async function buildDocx(
     });
   }
 
-  // ---- analysis questions ---------------------------------------------------
-  // Rows where both boxes are blank are skipped, same as the preview.
-  const asked = report.analysis.filter(
-    (qa) => qa.question.trim() !== "" || qa.answer.trim() !== "",
-  );
-  if (asked.length > 0) {
-    children.push(heading("Analysis Questions"));
-    asked.forEach((qa, i) => {
-      children.push(
-        new Paragraph({
-          spacing: { before: 200, after: 60 },
-          keepNext: true, // keep the question on the same page as its answer
-          children: [
-            new TextRun({
-              text: `${i + 1}.  `,
-              bold: true,
-              color: theme.accent,
-              size: 22,
-            }),
-            new TextRun({
-              text: qa.question.trim(),
-              bold: true,
-              color: theme.ink,
-              size: 22,
-            }),
-          ],
-        }),
-      );
-      const answer = lines(qa.answer);
-      if (answer.length > 0) {
-        // One paragraph per line of the answer, indented under the question.
-        for (const text of answer) {
-          children.push(
-            new Paragraph({
-              indent: { left: 360 },
-              children: [new TextRun({ text, color: theme.ink, size: 22 })],
-            }),
-          );
-        }
-      } else if (options.markUnanswered) {
+  // ---- the walk ------------------------------------------------------------
+  // One case per kind of block, in the order they came. No filtering, no
+  // decisions about what belongs in the document — that all happened already,
+  // in whatever built the blocks.
+  for (const block of blocks) {
+    switch (block.kind) {
+      case "title":
         children.push(
           new Paragraph({
-            indent: { left: 360 },
+            heading: HeadingLevel.TITLE,
             children: [
               new TextRun({
-                text: "(not answered)",
-                italics: true,
-                color: theme.muted,
+                text: block.text,
+                bold: true,
+                color: theme.dark,
+                size: 40,
+              }),
+            ],
+          }),
+        );
+        break;
+
+      case "byline":
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: block.text, color: theme.muted, size: 22 }),
+            ],
+          }),
+        );
+        break;
+
+      case "labeled":
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: block.label,
+                bold: true,
+                color: theme.ink,
+                size: 22,
+              }),
+              new TextRun({ text: block.text, color: theme.ink, size: 22 }),
+            ],
+          }),
+        );
+        break;
+
+      case "heading":
+        children.push(heading(block.text));
+        break;
+
+      case "bullets":
+        for (const item of block.items) children.push(bullet(item));
+        break;
+
+      case "caption":
+        children.push(
+          new Paragraph({
+            spacing: { before: 160, after: 80 },
+            children: [
+              new TextRun({
+                text: block.text,
+                bold: true,
+                color: theme.dark,
                 size: 22,
               }),
             ],
           }),
         );
+        break;
+
+      case "table":
+        children.push(dataTable(block.headers, block.rows));
+        break;
+
+      case "calc": {
+        const inside: Paragraph[] = [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: block.name,
+                bold: true,
+                color: theme.dark,
+                size: 22,
+              }),
+            ],
+          }),
+        ];
+        if (block.formula !== "") {
+          inside.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: block.formula,
+                  italics: true,
+                  color: theme.muted,
+                  size: 20,
+                }),
+              ],
+            }),
+          );
+        }
+        if (block.work !== "") {
+          inside.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Work: ",
+                  bold: true,
+                  color: theme.ink,
+                  size: 20,
+                }),
+                new TextRun({ text: block.work, color: theme.ink, size: 20 }),
+              ],
+            }),
+          );
+        }
+        inside.push(
+          new Paragraph({
+            spacing: { before: 60 },
+            children: [
+              new TextRun({
+                text: "Answer: ",
+                bold: true,
+                color: theme.ink,
+                size: 22,
+              }),
+              new TextRun({
+                text: block.answer,
+                bold: true,
+                color: theme.accent,
+                size: 24,
+              }),
+            ],
+          }),
+        );
+        children.push(box(inside));
+        break;
       }
-    });
+
+      case "question":
+        children.push(
+          new Paragraph({
+            spacing: { before: 200, after: 60 },
+            keepNext: true, // keep the question with its answer
+            children: [
+              new TextRun({
+                text: `${block.number}.  `,
+                bold: true,
+                color: theme.accent,
+                size: 22,
+              }),
+              new TextRun({
+                text: block.question,
+                bold: true,
+                color: theme.ink,
+                size: 22,
+              }),
+            ],
+          }),
+        );
+        if (block.answer.length > 0) {
+          // One paragraph per line of the answer, indented under the question.
+          for (const text of block.answer) {
+            children.push(
+              new Paragraph({
+                indent: { left: 360 },
+                children: [new TextRun({ text, color: theme.ink, size: 22 })],
+              }),
+            );
+          }
+        } else if (block.unanswered) {
+          children.push(
+            new Paragraph({
+              indent: { left: 360 },
+              children: [
+                new TextRun({
+                  text: "(not answered)",
+                  italics: true,
+                  color: theme.muted,
+                  size: 22,
+                }),
+              ],
+            }),
+          );
+        }
+        break;
+
+      case "image":
+        children.push(
+          new Paragraph({
+            // Centred, with air above and below — a graph dropped straight
+            // against the text reads as part of it.
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 120 },
+            children: [
+              new ImageRun({
+                type: "png",
+                data: block.data,
+                transformation: { width: block.width, height: block.height },
+                altText: { name: block.alt, description: block.alt, title: block.alt },
+              }),
+            ],
+          }),
+        );
+        break;
+
+      case "gap":
+        children.push(new Paragraph({ children: [] }));
+        break;
+    }
   }
 
   // ---- put it all together --------------------------------------------------
   const doc = new Document({
-    creator: report.info.studentName.trim() || undefined,
-    title: report.info.title || "Lab Report",
+    creator: meta.creator?.trim() || undefined,
+    title: meta.title,
     // One default font for every run, so no TextRun has to name it. Word's
     // built-in Title and Heading styles bring their own, which is why the
     // title looks different from the body.
@@ -674,4 +667,25 @@ export async function buildDocx(
   // Turn the document into bytes the app can save.
   const bytes = await Packer.toArrayBuffer(doc);
   return new Uint8Array(bytes);
+}
+
+/**
+ * A lab report as a Word file.
+ *
+ * Now a thin wrapper: the report becomes blocks, the blocks become Word.
+ * The two document options it holds (showFormulas, markUnanswered) belong to
+ * the block stage — they decide what goes IN the document, not how it looks.
+ */
+export async function buildDocx(
+  report: LabReport,
+  options: DocxOptions = defaultDocxOptions(),
+): Promise<Uint8Array> {
+  const blocks = buildDocument(report, {
+    showFormulas: options.showFormulas,
+    markUnanswered: options.markUnanswered,
+  });
+  return blocksToDocx(blocks, options, {
+    title: report.info.title.trim() || "Lab Report",
+    creator: report.info.studentName,
+  });
 }

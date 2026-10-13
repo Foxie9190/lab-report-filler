@@ -16,6 +16,10 @@
  */
 
 import { el } from "../ui";
+import { blocksToDocx, defaultDocxOptions } from "../backend/exportDocx";
+import { buildMathSheet } from "../backend/math/sheet";
+import { graphPicture, SHEET_PICTURE } from "./graphImage";
+import { fileNameFor, saveDocx } from "../saveFile";
 import { newEnv } from "../backend/math/evaluate";
 import type { MathEnv } from "../backend/math/evaluate";
 import { makeMathPage } from "../backend/math/page";
@@ -198,7 +202,55 @@ function draw(): void {
     void openPage(null);
   });
 
-  const bar = el("div", { class: "page-bar" }, [title, state, fresh]);
+  /*
+   * The printable sheet.
+   *
+   * The whole job is: page -> blocks -> Word. blocksToDocx is the same
+   * renderer that writes lab reports, so the sheet comes out in the same
+   * theme and font without this file knowing what either of those is.
+   */
+  const sheet = el("button", { class: "ghost small", type: "button" }, ["Save as Word"]);
+  sheet.addEventListener("click", async () => {
+    sheet.disabled = true;
+    const was = sheet.textContent;
+    try {
+      // Drawn fresh for paper rather than copied off the screen: white
+      // background, dark ink, twice the size so it stays sharp.
+      const drawn = await graphPicture(page);
+      const blocks = buildMathSheet(
+        page,
+        {
+          name: remembered("labfiller.studentName") ?? "",
+          course: remembered("labfiller.studentCourse") ?? "",
+        },
+        undefined,
+        drawn === null ? null : { data: drawn, ...SHEET_PICTURE },
+      );
+      const bytes = await blocksToDocx(
+        blocks,
+        {
+          ...defaultDocxOptions(),
+          // The same look as this person's lab reports, whatever they chose.
+          theme: remembered("labfiller.docTheme") ?? defaultDocxOptions().theme,
+          font: remembered("labfiller.docFont") ?? defaultDocxOptions().font,
+          customColor: remembered("labfiller.docColor") ?? undefined,
+        },
+        { title: page.title.trim() || "Maths", creator: remembered("labfiller.studentName") ?? "" },
+      );
+      const saved = await saveDocx(bytes, fileNameFor(page.title.trim() || "Maths"));
+      sheet.textContent = saved === null ? was : "Saved";
+    } catch (err) {
+      console.error("could not write the sheet", err);
+      sheet.textContent = "Couldn't save";
+    } finally {
+      window.setTimeout(() => {
+        sheet.textContent = was;
+        sheet.disabled = false;
+      }, 1800);
+    }
+  });
+
+  const bar = el("div", { class: "page-bar" }, [title, state, sheet, fresh]);
 
   // ---- the inner tabs
   const strip = el("div", { class: "subtabs", role: "tablist" });

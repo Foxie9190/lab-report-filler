@@ -5,7 +5,7 @@
  * in beats a dropdown once there are more than about five.
  */
 
-import { el } from "../ui";
+import { el, field } from "../ui";
 import { pageLabel } from "../backend/math/page";
 import { deleteMathPage, duplicateMathPage, listMathPages } from "../store";
 import { deletePageFromCloud } from "../cloud";
@@ -85,6 +85,30 @@ export function buildPages(host: HTMLElement, shared: Shared): void {
   const fresh = el("button", { class: "primary", type: "button" }, ["New page"]);
   fresh.addEventListener("click", () => void shared.openPage(null));
 
+  /*
+   * Who the sheets are for.
+   *
+   * Kept here rather than on each page: it's the same person and usually the
+   * same class every time, so typing it once and forgetting about it is the
+   * right default — and it's two boxes to change when it isn't.
+   */
+  function remembering(key: string, label: string, placeholder: string): HTMLElement {
+    const box = field(label, placeholder);
+    try {
+      box.input.value = localStorage.getItem(key) ?? "";
+    } catch {
+      // No storage — the boxes still work for this session.
+    }
+    box.input.addEventListener("input", () => {
+      try {
+        localStorage.setItem(key, box.input.value);
+      } catch {
+        // Not fatal; the sheet just goes out without a name.
+      }
+    });
+    return box.wrap;
+  }
+
   host.append(
     el("section", { class: "card" }, [
       el("div", { class: "calc-head" }, [el("h2", {}, ["Pages"]), fresh]),
@@ -92,6 +116,16 @@ export function buildPages(host: HTMLElement, shared: Shared): void {
         "Every page of working you've done. They save themselves as you go.",
       ]),
       list,
+    ]),
+    el("section", { class: "card" }, [
+      el("h2", {}, ["On printed sheets"]),
+      el("p", { class: "subtitle" }, [
+        "Printed at the top of every sheet you save as Word, with today's date.",
+      ]),
+      el("div", { class: "grid2" }, [
+        remembering("labfiller.studentName", "Your name", "Landon Urquhart"),
+        remembering("labfiller.studentCourse", "Class", "Algebra 2"),
+      ]),
     ]),
   );
 

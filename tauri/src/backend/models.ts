@@ -357,6 +357,26 @@ export interface QuestionBlock {
   unanswered: boolean;
 }
 
+/**
+ * A picture, as PNG bytes.
+ *
+ * Bytes rather than a path or a URL, because the two renderers need
+ * different things from it — Word embeds the bytes in the file, the preview
+ * turns them into a data URL — and bytes are the only form both can use
+ * without touching a disk or a network.
+ *
+ * The size is in pixels at 96 per inch, which is what Word counts in. 624
+ * is the full width of the page inside its margins.
+ */
+export interface ImageBlock {
+  kind: "image";
+  data: Uint8Array;
+  width: number;
+  height: number;
+  /** What the picture shows, for anyone who can't see it. */
+  alt: string;
+}
+
 /** Vertical breathing room. Word needs a real empty paragraph for this. */
 export interface GapBlock {
   kind: "gap";
@@ -372,4 +392,5 @@ export type Block =
   | TableBlock
   | CalcBlock
   | QuestionBlock
+  | ImageBlock
   | GapBlock;

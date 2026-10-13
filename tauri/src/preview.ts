@@ -168,9 +168,28 @@ function renderBlock(block: Block, striped: boolean): HTMLElement {
       return box;
     }
 
+    case "image": {
+      // A data URL rather than createObjectURL: the preview redraws on every
+      // keystroke, and object URLs would have to be revoked by hand or leak.
+      const img = el("img", { class: "p-image", alt: block.alt });
+      img.src = `data:image/png;base64,${base64(block.data)}`;
+      img.style.width = `${block.width}px`;
+      return img;
+    }
+
     case "gap":
       return el("div", { class: "p-gap" });
   }
+}
+
+/** PNG bytes as base64, in chunks so a big picture can't blow the stack. */
+function base64(data: Uint8Array): string {
+  let text = "";
+  const chunk = 0x8000;
+  for (let at = 0; at < data.length; at += chunk) {
+    text += String.fromCharCode(...data.subarray(at, at + chunk));
+  }
+  return btoa(text);
 }
 
 /** Every block, in order, with each one tagged with its form section. */
