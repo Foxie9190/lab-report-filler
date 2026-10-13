@@ -21,7 +21,6 @@
  * The steps printed for the person are that same arithmetic, narrated.
  */
 
-import { LevelFormat } from "docx";
 import { evaluate } from "./evaluate";
 import type { MathEnv } from "./evaluate";
 import type { Node } from "./parse";
@@ -98,8 +97,18 @@ export function linear(node: Node, name: string, env: MathEnv): Linear {
 }
 
 /** `a * x + b` written the way a person would: 3x + 7, x - 2, 5. */
+/** Trim floating-point dust: 0.30000000000000004 -> 0.3 */
+function round(value: number): number {
+  return Number(value.toPrecision(12));
+}
+
+/** "x" rather than "1x", which is how nobody writes it. */
+function times(count: number, name: string): string {
+  const n = round(Math.abs(count));
+  return n === 1 ? name : `${n}${name}`;
+}
+
 export function side(form: Linear, name: string): string {
-  const round = (value: number) => Number(value.toPrecision(12));
   const a = round(form.a);
   const b = round(form.b);
   if (a === 0) return String(b);
@@ -130,7 +139,7 @@ export function solve(
     l.a -= move;
     r.a -= move;
     steps.push(
-      `${move > 0 ? "Subtract" : "Add"} ${Math.abs(move)}${name} ${move > 0 ? "from" : "to"} both sides:  ${side(l, name)} = ${side(r, name)}`,
+      `${move > 0 ? "Subtract" : "Add"} ${times(move, name)} ${move > 0 ? "from" : "to"} both sides:  ${side(l, name)} = ${side(r, name)}`,
     );
   }
   if (l.b !== 0) {
@@ -138,7 +147,7 @@ export function solve(
     l.b -= move;
     r.b -= move;
     steps.push(
-      `${move > 0 ? "Subtract" : "Add"} ${Math.abs(move)} ${move > 0 ? "from" : "to"} both sides:  ${side(l, name)} = ${side(r, name)}`,
+      `${move > 0 ? "Subtract" : "Add"} ${round(Math.abs(move))} ${move > 0 ? "from" : "to"} both sides:  ${side(l, name)} = ${side(r, name)}`,
     );
   }
 
@@ -153,7 +162,7 @@ export function solve(
 
   if (l.a !== 1) {
     steps.push(
-      `Divide both sides by ${l.a}:  ${name} = ${Number((r.b / l.a).toPrecision(12))}`,
+      `Divide both sides by ${round(l.a)}:  ${name} = ${round(r.b / l.a)}`,
     );
   }
 

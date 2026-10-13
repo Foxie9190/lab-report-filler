@@ -95,6 +95,15 @@ expect("sqrt(x+1)", "(sqrt (+ x 1))");
 expect("max(2, 9)", "(max 2 9)");
 expect("sin(30)+1", "(+ (sin 30) 1)");
 
+// ---- written the way it is on paper -----------------------------------------
+expect("3x", "(* 3 x)");
+expect("3x + 7", "(+ (* 3 x) 7)");
+expect("2(x+1)", "(* 2 (+ x 1))");
+expect("2pi", "(* 2 pi)");
+expect("3x^2", "(* 3 (^ x 2))");
+expect("2x + 3y", "(+ (* 2 x) (* 3 y))");
+expect("x(x+1)", "(x (+ x 1))");   // a name before a bracket is still a call
+
 // ---- nonsense should be refused ---------------------------------------------
 expectRefused("2+");
 expectRefused("(2");

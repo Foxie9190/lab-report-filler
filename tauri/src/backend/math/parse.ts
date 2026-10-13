@@ -99,19 +99,35 @@ export function parseExpression(r: Reader): Node {
 }
 
 /** * and / , left to right. Same shape as parseExpression. */
+/**
+ * Does the next token start something new to multiply by?
+ *
+ * This is what makes `3x` mean `3 * x`, the way it's written on paper.
+ * Deliberately only a NAME or an opening bracket: allowing a number here
+ * would make "2 3" quietly mean 6, and two numbers in a row is a typo, not
+ * a sum.
+ */
+function startsFactor(r: Reader): boolean {
+  const token = r.peek();
+  if (token === null) return false;
+  if (token.kind === "name") return true;
+  return token.kind === "op" && token.text === "(";
+}
+
+/** * and / , left to right. Same shape as parseExpression. */
 export function parseTerm(r: Reader): Node {
   let left = parsePower(r);
 
-  while (r.atOp("*") || r.atOp("/")) {
-    const op = r.atOp("*") ? "*" : "/";
-    r.take(op);
+  while (r.atOp("*") || r.atOp("/") || startsFactor(r)) {
+    // No operator at all means it was written the way 3x is written.
+    const op = r.take("*") ? "*" : r.take("/") ? "/" : "*";
     const right = parsePower(r);
     left = { kind: "binary", op, left, right };
   }
+
   return left;
 }
 
-/** ^ , RIGHT to left: 2^3^2 is 2^(3^2) = 512, not (2^3)^2 = 64. */
 export function parsePower(r: Reader): Node {
   const left = parseAtom(r);
 

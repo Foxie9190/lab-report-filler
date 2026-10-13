@@ -1400,3 +1400,54 @@ button.small { font-size: 12px; padding: 5px 10px; }
   .subtab, .key { transition: none; }
   .key:active { transform: none; }
 }
+
+/* ---- the Solve area ------------------------------------------------------
+ * Laid out the way working is written on paper: the question, the moves
+ * numbered under it, the answer on its own line at the bottom.
+ */
+.solve-block {
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+}
+.solve-block:last-child { border-bottom: none; }
+
+.solve-steps {
+  margin: 6px 0 8px;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.solve-steps li { font-size: 13px; color: var(--muted); }
+.solve-move { margin-right: 8px; }
+/* An arrow between the move and what it leaves you with, so the two don't
+   read as one run-on sentence. */
+.solve-result::before { content: "\2192\00a0"; color: var(--muted); }
+.solve-result {
+  font-family: ui-monospace, Menlo, monospace;
+  color: var(--ink);
+}
+.solve-answer {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.solve-block.bad .solve-answer {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--error-fg);
+}
+
+/* The little "for x" box between the equation and the button. */
+.solve-for-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.solve-for-wrap span { font-size: 13px; color: var(--muted); }
+.solve-for {
+  width: 56px !important;
+  text-align: center;
+  font-family: ui-monospace, Menlo, monospace !important;
+}

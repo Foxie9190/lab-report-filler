@@ -17,6 +17,7 @@ import { newEnv } from "../backend/math/evaluate";
 import type { MathEnv } from "../backend/math/evaluate";
 import { buildCalculator } from "./calculator";
 import { buildGraph } from "./graph";
+import { buildSolver } from "./solver";
 
 /**
  * What every area is handed.
@@ -43,6 +44,7 @@ export interface MathArea {
 
 const AREAS: MathArea[] = [
   { id: "calc", label: "Calculator", build: buildCalculator },
+  { id: "solve", label: "Solve", build: buildSolver },
   { id: "graph", label: "Graph", build: buildGraph },
 ];
 

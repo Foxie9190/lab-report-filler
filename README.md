@@ -3,8 +3,8 @@
 A schoolwork app with tabs. **Lab report** writes chemistry lab reports —
 fill in the form, watch the document build itself on the page beside you,
 let it do the math and show the work, and save a finished Word document you
-can turn in. **Math** is a calculator and a graph, both running on an
-expression engine written from scratch.
+can turn in. **Math** is a calculator, an equation solver that shows its working, and
+a graph — all running on an expression engine written from scratch.
 
 Mac, Windows and Linux — or straight in your browser at
 **[foxie9190.github.io/lab-report-filler](https://foxie9190.github.io/lab-report-filler/)**,
@@ -267,6 +267,27 @@ got somewhere instead of one number in a window.
 Built in: `sqrt`, `abs`, `round`, `floor`, `ceil`, `ln`, `log`, `sin`,
 `cos`, `tan`, `asin`, `acos`, `atan`, `min`, `max`, plus `pi` and `e`.
 
+### Solve
+
+Type `3x + 7 = 22` and get the steps, not just the answer:
+
+```
+3x + 7 = 22
+  1. Subtract 7 from both sides  →  3x = 15
+  2. Divide both sides by 3      →  x = 5
+x = 5
+```
+
+- Write it the way you'd write it on paper — `3x`, `2(x - 3)`, `x/4`. A
+  number next to a letter or a bracket means multiply.
+- It works out which letter is the unknown by itself. The **for** box next
+  to the equation is only needed when there's more than one.
+- One unknown, and it can't be squared or sitting inside a function. `x^2 =
+  4` and `sin(x) = 1` are refused with a reason, rather than answered
+  wrongly.
+- The answer is remembered afterwards, so you can use it in the calculator
+  or draw it on the graph.
+
 ### Graph
 
 Type `y = x^2 - 3` and it's drawn. Add as many lines as you like; each gets
@@ -307,8 +328,15 @@ Instead `src/backend/math` does it properly, in three steps:
    `Infinity` is caught where it appears rather than being allowed to spread
    — which is what keeps the graph honest.
 
-The engine is covered by three test files: `npm run test:math`,
-`npm run test:parse`, `npm run test:eval`.
+Solving sits on top of that. Every straight-line equation, however it's
+written, is really `a * x + b` on each side — `solve.ts` walks the tree
+collecting those two numbers per side, and the steps it prints are that
+same arithmetic, narrated. Any branch without an `x` in it is just a
+number, so it hands that branch to the evaluator; which is why
+`x + sin(30) = 1.5` works without the solver knowing what `sin` is.
+
+The engine is covered by four test files: `npm run test:math`,
+`npm run test:parse`, `npm run test:eval`, `npm run test:solve`.
 
 ## Troubleshooting
 
@@ -372,6 +400,7 @@ npm test             # the chemistry tests
 npm run test:math    # the math tokenizer
 npm run test:parse   # the math parser
 npm run test:eval    # the math evaluator
+npm run test:solve   # the equation solver
 npm run check        # TypeScript, no build
 ```
 
@@ -397,6 +426,7 @@ tauri/
     math/
       mathTab.ts        the Math tab shell and its inner tabs
       calculator.ts     the calculator screen
+      solver.ts         the solve screen
       graph.ts          the graph screen: axes, curves, pan and zoom
     backend/
       models.ts         the shared data shapes, including Block
@@ -410,11 +440,13 @@ tauri/
         tokenize.ts     text -> tokens
         parse.ts        tokens -> a tree
         evaluate.ts     a tree -> a number
+        solve.ts        an equation -> the steps and the answer
   src-tauri/            the Rust side: window, plugins, permissions
   test.ts               the chemistry tests
   test-math.ts          the tokenizer tests
   test-parse.ts         the parser tests
   test-eval.ts          the evaluator tests
+  test-solve.ts         the solver tests
 
 server/                 the accounts and sync API (Node, Express, MongoDB)
   src/server.ts         the routes
