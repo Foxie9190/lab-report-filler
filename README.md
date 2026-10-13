@@ -4,14 +4,16 @@ A schoolwork app with tabs. **Lab report** writes chemistry lab reports —
 fill in the form, watch the document build itself on the page beside you,
 let it do the math and show the work, and save a finished Word document you
 can turn in. **Math** is a calculator, an equation solver that shows its working, and
-a graph — all running on an expression engine written from scratch.
+a graph — all running on an expression engine written from scratch, and all
+of it saveable as a printable sheet.
 
 Mac, Windows and Linux — or straight in your browser at
 **[foxie9190.github.io/lab-report-filler](https://foxie9190.github.io/lab-report-filler/)**,
 no install at all.
 
 Accounts are optional. Without one, nothing you type leaves your computer.
-With one, your labs follow you to your other computers.
+With one, your labs and your maths pages follow you to your other
+computers.
 
 **Built with** TypeScript and [Tauri](https://tauri.app) for the app ·
 Node and Express on [Render](https://render.com) for the sync server ·
@@ -203,11 +205,12 @@ folder. In the browser they live in that browser.
 Optional, and off until you ask for it — the button says **Sign in** in
 the corner of the header.
 
-With an account your labs are kept on a server as well as on your
-computer, so the same labs are there on a different one. It syncs when you
-sign in and whenever you press **Sync now**: your changes go up, anything
-new comes down, and if the same lab was edited in two places the newer
-edit wins.
+With an account your labs and your maths pages are kept on a server as well
+as on your computer, so the same work is there on a different one. It syncs
+when you sign in and whenever you press **Sync now**: your changes go up,
+anything new comes down, and if the same lab or page was edited in two
+places the newer edit wins. Deleting something deletes it everywhere,
+rather than having it come back down on the next sync.
 
 Without an account nothing is sent anywhere, and the app behaves exactly
 as it did before accounts existed.
@@ -300,6 +303,56 @@ its own colour.
 - `sqrt(x)` simply stops at zero rather than drawing nonsense, and `1/x`
   doesn't get a fake vertical line through the break at zero — a gap in a
   function is drawn as a gap.
+
+### Pages
+
+Whatever you do in the three screens above is a *page*, and pages save
+themselves. The title box at the top of the Math tab is the only thing you
+fill in, and even that can stay empty — a page with no title is listed by
+its first line instead.
+
+**Pages** in the row of tabs lists everything you've worked on, newest
+first, the same way **My labs** lists labs. Open one to carry on, duplicate
+one to try the same question a different way, or delete one. A page keeps
+all three screens at once: the calculator's working, the variables you set,
+Degrees or Radians, the equations you solved, and the lines on the graph. So
+reopening last night's homework puts the graph back the way you left it.
+
+**Your name** and **Class** sit at the bottom of that screen rather than on
+each page, because it's the same answer every time. They go at the top of
+every sheet you save.
+
+### The printable sheet
+
+**Save as Word** in the Math tab turns the page into something you can hand
+in:
+
+- Your name, class and today's date under the title.
+- **Problems** — every equation you solved, numbered, with its steps
+  underneath and the answer on its own line.
+- **Graphs** — a picture of your lines, then a table of values for each one
+  from −5 to 5.
+
+Two things are left off on purpose: scratch calculator lines, and equations
+the solver refused. A sheet is what you meant to show, not everything you
+typed.
+
+The picture is not a screenshot of the graph screen. It's drawn again for
+paper — white background, double size so the text is still sharp when it's
+printed — and it trims the most extreme 2% at each end, so one line shooting
+off towards infinity can't squash everything else flat.
+
+Each line gets a colour **and** a dash pattern — solid, dashed, dotted,
+dash-dot — with a key on the picture saying which is which. The dashes are
+there because four colours photocopy to four almost identical greys: the
+pattern survives a copier, the colour doesn't. The key picks its own corner
+by sampling where the lines actually go and counting how many points land in
+each corner, so it doesn't end up sitting on the part you wanted to look at.
+
+A sheet is built out of the same blocks as a lab report —
+`src/backend/math/sheet.ts` returns a `Block[]` and touches neither Word nor
+HTML — so it goes through the same Word renderer, with the same theme, font
+and colour you picked for your reports.
 
 ### How it works, and why there's no `eval`
 
@@ -428,6 +481,8 @@ tauri/
       calculator.ts     the calculator screen
       solver.ts         the solve screen
       graph.ts          the graph screen: axes, curves, pan and zoom
+      pages.ts          the saved pages, and who the sheets are for
+      graphImage.ts     redraws the graph for paper, with the key
     backend/
       models.ts         the shared data shapes, including Block
       chem.ts           the chemistry math
@@ -441,6 +496,8 @@ tauri/
         parse.ts        tokens -> a tree
         evaluate.ts     a tree -> a number
         solve.ts        an equation -> the steps and the answer
+        page.ts         what a saved page is made of
+        sheet.ts        MathPage -> Block[]: what goes on the sheet
   src-tauri/            the Rust side: window, plugins, permissions
   test.ts               the chemistry tests
   test-math.ts          the tokenizer tests
@@ -452,6 +509,7 @@ server/                 the accounts and sync API (Node, Express, MongoDB)
   src/server.ts         the routes
   src/auth.ts           signing up, signing in, sessions
   src/labs.ts           reading and writing labs, always filtered by account
+  src/pages.ts          the same, for maths pages
   src/db.ts             the MongoDB connection and its indexes
   DEPLOY.md             how to host it
 ```
@@ -462,7 +520,8 @@ The UI never does math, and the math never touches a button.
 `document.ts` is the one place that knows what belongs in a report and in
 what order. Everything that draws the report reads its `Block[]` rather
 than the `LabReport` itself, which is why the live page and the Word file
-agree. If a rule about the report changes, it changes there, once.
+agree. If a rule about the report changes, it changes there, once. `math/sheet.ts`
+is the same idea for a page of maths.
 
 ### Making it yours
 

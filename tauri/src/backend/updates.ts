@@ -1,4 +1,4 @@
-export const VERSION = "3.1.0";
+export const VERSION = "3.2.0";
 
 const REPO = "Foxie9190/lab-report-filler";
 const API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
