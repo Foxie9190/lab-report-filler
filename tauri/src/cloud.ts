@@ -19,19 +19,30 @@
 
 import {
   cloudIdFor,
+  cloudIdForPage,
   hasAnyLab,
   labIdForCloud,
   labsToPush,
   labUpdatedAt,
   loadLab,
+  loadMathPage,
   markLabSynced,
+  markPageSynced,
+  pageIdForCloud,
+  pagesToPush,
+  pageUpdatedAt,
   saveLabFromServer,
+  savePageFromServer,
   setSyncedThrough,
   syncedThrough,
 } from "./backend/db";
+import type { MathPage } from "./backend/math/page";
 import type { LabReport } from "./backend/models";
 import { makeDataTable, makeLabReport } from "./backend/models";
-import { deleteLab as deleteLocalLab } from "./backend/db";
+import {
+  deleteLab as deleteLocalLab,
+  deleteMathPage as deleteLocalPage,
+} from "./backend/db";
 
 const API_KEY = "labfiller.apiUrl";
 const TOKEN_KEY = "labfiller.token";
@@ -247,6 +258,64 @@ interface WireLab {
   deleted: boolean;
 }
 
+/** A maths page as the server keeps it. */
+interface WirePage {
+  id: string;
+  title: string;
+  degrees: boolean;
+  variables: [string, number][];
+  lines: MathPage["lines"];
+  curves: MathPage["curves"];
+  appUpdatedAt: string;
+  deleted?: boolean;
+}
+
+function pageToWire(page: MathPage, appUpdatedAt: string) {
+  return {
+    title: page.title,
+    degrees: page.degrees,
+    variables: page.variables,
+    lines: page.lines,
+    curves: page.curves,
+    appUpdatedAt,
+  };
+}
+
+/**
+ * A page from the server, made safe to use.
+ *
+ * Everything is checked rather than trusted: this is the one place data
+ * someone else's computer wrote enters this one, and a missing field here
+ * would be a crash in the Math tab later.
+ */
+function pageFromWire(wire: WirePage): MathPage {
+  return {
+    title: typeof wire.title === "string" ? wire.title : "",
+    degrees: wire.degrees !== false,
+    variables: Array.isArray(wire.variables)
+      ? wire.variables.filter(
+          (pair) =>
+            Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "number",
+        )
+      : [],
+    lines: Array.isArray(wire.lines)
+      ? wire.lines
+          .filter((line) => line !== null && typeof line === "object")
+          .map((line) => ({
+            kind: line.kind === "solve" ? ("solve" as const) : ("calc" as const),
+            input: typeof line.input === "string" ? line.input : "",
+            output: typeof line.output === "string" ? line.output : "",
+            ok: line.ok !== false,
+          }))
+      : [],
+    curves: Array.isArray(wire.curves)
+      ? wire.curves
+          .filter((curve) => curve !== null && typeof curve === "object")
+          .map((curve) => ({ text: typeof curve.text === "string" ? curve.text : "" }))
+      : [],
+  };
+}
+
 function toWire(report: LabReport, appUpdatedAt: string) {
   return {
     title: report.info.title,
@@ -371,11 +440,76 @@ export async function syncNow(): Promise<SyncReport> {
     report.pulled++;
   }
 
-  // Only now, with everything applied, move the marker. If the loop had
-  // thrown, the next sync would ask for the same window again rather than
-  // skipping past labs it never wrote.
+  // ---- the same four moves again, for maths pages
+  await syncPages(report, since);
+
+  // Only now, with everything applied, move the marker. If anything above
+  // had thrown, the next sync would ask for the same window again rather
+  // than skipping past work it never wrote.
   await setSyncedThrough(out.serverTime);
   return report;
+}
+
+/**
+ * Push and pull maths pages.
+ *
+ * Same shape as the lab half above, and deliberately after it: labs are the
+ * thing people would miss most, so they go up first. If the connection dies
+ * between the two, the pages stay dirty and go up on the next sync — nothing
+ * is lost either way, which is the whole reason the marker moves last.
+ */
+async function syncPages(report: SyncReport, since: string | null): Promise<void> {
+  // ---- push
+  for (const pending of await pagesToPush()) {
+    const page = await loadMathPage(pending.id);
+    if (page === null) continue; // deleted while we were looking
+    const when = (await pageUpdatedAt(pending.id)) ?? new Date().toISOString();
+    const body = JSON.stringify(pageToWire(page, when));
+
+    if (pending.cloudId) {
+      const out = await ask<{ id: string; kept: string }>(`/pages/${pending.cloudId}`, {
+        method: "PUT",
+        body,
+      });
+      // kept: "server" means the server's copy was newer. Leave this page
+      // dirty — the pull below brings the newer one down, and nothing of
+      // this device's is lost in the meantime.
+      if (out.kept === "yours") {
+        await markPageSynced(pending.id, out.id);
+        report.pushed++;
+      }
+    } else {
+      const out = await ask<{ id: string }>("/pages", { method: "POST", body });
+      await markPageSynced(pending.id, out.id);
+      report.pushed++;
+    }
+  }
+
+  // ---- pull
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  const out = await ask<{ pages: WirePage[] }>(`/pages${query}`);
+
+  for (const wire of out.pages) {
+    const localId = await pageIdForCloud(wire.id);
+
+    if (wire.deleted) {
+      // Deleted on another device. That's a deletion the person asked for,
+      // so it's the one case where local work goes.
+      if (localId !== null) {
+        await deleteLocalPage(localId);
+        report.deleted++;
+      }
+      continue;
+    }
+
+    if (localId !== null) {
+      const mine = await pageUpdatedAt(localId);
+      // Ours is newer: leave it. The next push sends it up.
+      if (mine && mine > wire.appUpdatedAt) continue;
+    }
+    await savePageFromServer(pageFromWire(wire), wire.id, wire.appUpdatedAt);
+    report.pulled++;
+  }
 }
 
 /** Tell the server about a lab deleted here. Best effort. */
@@ -388,5 +522,22 @@ export async function deleteFromCloud(localId: number): Promise<void> {
   } catch {
     // Offline: the lab goes locally and the server keeps its copy. Annoying,
     // not harmful — it comes back on the next pull and can be deleted again.
+  }
+}
+
+/**
+ * Tell the server a maths page was deleted here.
+ *
+ * Without this the page would come back down on the next pull, because to
+ * the server a page nobody mentioned is simply a page that still exists.
+ */
+export async function deletePageFromCloud(localId: number): Promise<void> {
+  if (!signedIn()) return;
+  try {
+    const cloudId = await cloudIdForPage(localId);
+    if (!cloudId) return;
+    await ask(`/pages/${cloudId}`, { method: "DELETE" });
+  } catch {
+    // Offline: same deal as a lab. It reappears and can be deleted again.
   }
 }

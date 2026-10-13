@@ -115,6 +115,10 @@ const LATER_COLUMNS = [
   { table: "lab", column: "cloud_id", type: "TEXT" },
   { table: "lab", column: "dirty", type: "INTEGER NOT NULL DEFAULT 1" },
   { table: "lab", column: "synced_at", type: "TEXT" },
+  // Maths pages sync exactly the same way, so they carry the same three.
+  { table: "math_page", column: "cloud_id", type: "TEXT" },
+  { table: "math_page", column: "dirty", type: "INTEGER NOT NULL DEFAULT 1" },
+  { table: "math_page", column: "synced_at", type: "TEXT" },
 ];
 
 async function addLaterColumns(database: Database): Promise<void> {
@@ -600,7 +604,7 @@ export async function saveMathPage(page: MathPage, id: number | null = null): Pr
   } else {
     await database.execute(
       `UPDATE math_page SET title = $1, degrees = $2, variables = $3,
-                            updated_at = datetime('now')
+                            updated_at = datetime('now'), dirty = 1
        WHERE id = $4`,
       [page.title, page.degrees ? 1 : 0, variables, id],
     );
@@ -637,4 +641,80 @@ export async function duplicateMathPage(id: number): Promise<number | null> {
   if (page === null) return null;
   page.title = `${page.title || "Maths"} (copy)`;
   return saveMathPage(page, null);
+}
+
+// ---- what sync needs from a page -------------------------------------------
+// The same six helpers labs have, against math_page. Kept separate rather
+// than made generic: two short honest functions beat one clever one that
+// takes a table name and has to be read twice.
+
+/** Pages this computer has changed since they last went up. */
+export async function pagesToPush(): Promise<{ id: number; cloudId: string | null }[]> {
+  const database = await openDatabase();
+  const rows = await database.select<{ id: number; cloud_id: string | null }[]>(
+    "SELECT id, cloud_id FROM math_page WHERE dirty = 1 ORDER BY updated_at",
+  );
+  return rows.map((r) => ({ id: r.id, cloudId: r.cloud_id }));
+}
+
+/** When this computer last changed a page, for deciding whose copy is newer. */
+export async function pageUpdatedAt(id: number): Promise<string | null> {
+  const database = await openDatabase();
+  const rows = await database.select<{ updated_at: string }[]>(
+    "SELECT updated_at FROM math_page WHERE id = $1",
+    [id],
+  );
+  return rows.length > 0 ? rows[0].updated_at : null;
+}
+
+/** Which local page is the server's one, if any. */
+export async function pageIdForCloud(cloudId: string): Promise<number | null> {
+  const database = await openDatabase();
+  const rows = await database.select<{ id: number }[]>(
+    "SELECT id FROM math_page WHERE cloud_id = $1",
+    [cloudId],
+  );
+  return rows.length > 0 ? rows[0].id : null;
+}
+
+export async function cloudIdForPage(id: number): Promise<string | null> {
+  const database = await openDatabase();
+  const rows = await database.select<{ cloud_id: string | null }[]>(
+    "SELECT cloud_id FROM math_page WHERE id = $1",
+    [id],
+  );
+  return rows.length > 0 ? rows[0].cloud_id : null;
+}
+
+/** It made it up there: remember which one it is and stop calling it dirty. */
+export async function markPageSynced(id: number, cloudId: string): Promise<void> {
+  const database = await openDatabase();
+  await database.execute(
+    "UPDATE math_page SET cloud_id = $1, dirty = 0, synced_at = datetime('now') WHERE id = $2",
+    [cloudId, id],
+  );
+}
+
+/**
+ * Write a page that came down from the server.
+ *
+ * updated_at is set to the time the OTHER computer saved it, not now —
+ * otherwise this copy would instantly look newer than the one up there and
+ * get pushed straight back.
+ */
+export async function savePageFromServer(
+  page: MathPage,
+  cloudId: string,
+  appUpdatedAt: string,
+): Promise<number> {
+  const existing = await pageIdForCloud(cloudId);
+  const id = await saveMathPage(page, existing);
+  const database = await openDatabase();
+  await database.execute(
+    `UPDATE math_page SET cloud_id = $1, dirty = 0, synced_at = datetime('now'),
+                          updated_at = $2
+     WHERE id = $3`,
+    [cloudId, appUpdatedAt, id],
+  );
+  return id;
 }

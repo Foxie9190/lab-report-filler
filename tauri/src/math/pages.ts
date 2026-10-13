@@ -8,6 +8,7 @@
 import { el } from "../ui";
 import { pageLabel } from "../backend/math/page";
 import { deleteMathPage, duplicateMathPage, listMathPages } from "../store";
+import { deletePageFromCloud } from "../cloud";
 import type { MathPageSummary } from "../store";
 import type { Shared } from "./mathTab";
 
@@ -40,6 +41,8 @@ export function buildPages(host: HTMLElement, shared: Shared): void {
     });
 
     remove.addEventListener("click", async () => {
+      // The server first, while the page still knows its cloud id.
+      await deletePageFromCloud(summary.id);
       await deleteMathPage(summary.id);
       // Deleting the page you're looking at leaves nothing open, so start a
       // fresh one rather than showing a page that no longer exists.

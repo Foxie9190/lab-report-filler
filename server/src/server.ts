@@ -16,6 +16,7 @@ import express from "express";
 import { connect } from "./db.js";
 import { login, logout, me, requireUser, signup } from "./auth.js";
 import { createLab, deleteLab, listLabs, updateLab } from "./labs.js";
+import { createPage, deletePage, listPages, updatePage } from "./pages.js";
 
 const app = express();
 
@@ -67,6 +68,12 @@ app.get("/labs", requireUser, listLabs);
 app.post("/labs", requireUser, createLab);
 app.put("/labs/:id", requireUser, updateLab);
 app.delete("/labs/:id", requireUser, deleteLab);
+
+// Maths pages, the same four moves against their own collection.
+app.get("/pages", requireUser, listPages);
+app.post("/pages", requireUser, createPage);
+app.put("/pages/:id", requireUser, updatePage);
+app.delete("/pages/:id", requireUser, deletePage);
 
 // A thrown error anywhere above lands here instead of killing the process.
 app.use((err: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {

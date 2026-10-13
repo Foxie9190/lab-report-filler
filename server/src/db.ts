@@ -72,6 +72,7 @@ export async function connect(): Promise<Db> {
   await db.collection<SessionDoc>("sessions").createIndex({ tokenHash: 1 }, { unique: true });
   await db.collection<SessionDoc>("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   await db.collection<LabDoc>("labs").createIndex({ userId: 1, updatedAt: -1 });
+  await db.collection<PageDoc>("pages").createIndex({ userId: 1, updatedAt: -1 });
 
   return db;
 }
@@ -86,4 +87,27 @@ export async function sessions(): Promise<Collection<SessionDoc>> {
 
 export async function labs(): Promise<Collection<LabDoc>> {
   return (await connect()).collection<LabDoc>("labs");
+}
+
+/**
+ * One page of maths, kept whole like a lab.
+ *
+ * The lines and curves are stored as they came — the server never looks
+ * inside a page, it hands them out and takes them back.
+ */
+export interface PageDoc {
+  _id?: unknown;
+  userId: string; // who owns it; every query filters on this
+  title: string;
+  degrees: boolean;
+  variables: unknown[];
+  lines: unknown[];
+  curves: unknown[];
+  appUpdatedAt: string;
+  updatedAt: Date;
+  deleted: boolean;
+}
+
+export async function pages(): Promise<Collection<PageDoc>> {
+  return (await connect()).collection<PageDoc>("pages");
 }
