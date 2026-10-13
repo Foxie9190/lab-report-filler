@@ -13,6 +13,11 @@ no install at all.
 Accounts are optional. Without one, nothing you type leaves your computer.
 With one, your labs follow you to your other computers.
 
+**Built with** TypeScript and [Tauri](https://tauri.app) for the app ·
+Node and Express on [Render](https://render.com) for the sync server ·
+[MongoDB Atlas](https://www.mongodb.com/atlas) for the database ·
+SQLite on your own machine · GitHub Pages for the website.
+
 ![The app](docs/app-dark.png)
 
 ## Install
