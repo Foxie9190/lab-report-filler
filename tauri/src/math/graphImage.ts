@@ -20,6 +20,15 @@ import type { MathPage } from "../backend/math/page";
 /** Ink for paper: dark enough to photocopy, distinct in black and white. */
 const COLOURS = ["#1D4ED8", "#047857", "#B45309", "#6D28D9", "#B91C1C"];
 
+/**
+ * A dash pattern per line, matching the colours above.
+ *
+ * Colour alone isn't enough on a sheet that gets photocopied — four
+ * different colours come out as four nearly identical greys. The pattern
+ * survives that, so the key still works in black and white.
+ */
+const DASHES: number[][] = [[], [10, 6], [2, 5], [12, 4, 2, 4], [6, 3]];
+
 export interface PictureSize {
   /** Printed size, in pixels at 96 per inch. 624 is the full text width. */
   width: number;
@@ -91,10 +100,15 @@ export async function graphPicture(
   const env = newEnv(page.degrees);
   for (const [name, value] of page.variables) env.variables.set(name, value);
 
-  const trees: { tree: Node; colour: string }[] = [];
+  const trees: { tree: Node; colour: string; dash: number[]; label: string }[] = [];
   drawn.forEach((curve, at) => {
     try {
-      trees.push({ tree: parse(curve.text.trim()), colour: COLOURS[at % COLOURS.length] });
+      trees.push({
+        tree: parse(curve.text.trim()),
+        colour: COLOURS[at % COLOURS.length],
+        dash: DASHES[at % DASHES.length],
+        label: `y = ${curve.text.trim()}`,
+      });
     } catch {
       // A half-typed line. Leave it out rather than refusing the whole sheet.
     }
@@ -179,9 +193,10 @@ export async function graphPicture(
   // ---- the curves
   const saved = env.variables.get("x");
   const tall = (maxY - minY) * 4;
-  for (const { tree, colour } of trees) {
+  for (const { tree, colour, dash } of trees) {
     context.strokeStyle = colour;
     context.lineWidth = 2.5 * scale;
+    context.setLineDash(dash.map((n) => n * scale));
     context.beginPath();
     let drawing = false;
     let lastY = 0;
@@ -214,6 +229,14 @@ export async function graphPicture(
   if (saved === undefined) env.variables.delete("x");
   else env.variables.set("x", saved);
 
+  context.setLineDash([]);
+
+  // ---- the key -------------------------------------------------------------
+  // Which line is which. Drawn last so it sits over the curves, in whichever
+  // corner has the least drawn through it — a key covering the interesting
+  // part of a graph is worse than no key.
+  drawKey(context, trees, width, height, scale, toX, toY, minX, maxX, env);
+
   // ---- a thin frame, so the picture has an edge on white paper
   context.strokeStyle = "#B8BFC9";
   context.lineWidth = 1 * scale;
@@ -228,4 +251,97 @@ export async function graphPicture(
         );
   if (!blob) return null;
   return new Uint8Array(await blob.arrayBuffer());
+}
+
+/**
+ * Draw the key, in the emptiest corner.
+ *
+ * "Emptiest" is worked out by sampling each curve across the picture and
+ * counting how many points land in each candidate box. It's rough on
+ * purpose — the only thing that matters is not putting the key on top of
+ * the part of the graph someone wants to look at.
+ */
+function drawKey(
+  context: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  trees: { tree: Node; colour: string; dash: number[]; label: string }[],
+  width: number,
+  height: number,
+  scale: number,
+  toX: (x: number) => number,
+  toY: (y: number) => number,
+  minX: number,
+  maxX: number,
+  env: MathEnv,
+): void {
+  const pad = 10 * scale;
+  const lineHeight = 20 * scale;
+  const sample = 34 * scale; // the little length of line in front of the text
+
+  context.font = `${12 * scale}px system-ui, sans-serif`;
+  const textWidth = Math.max(...trees.map((t) => context.measureText(t.label).width));
+  const boxWidth = sample + 8 * scale + textWidth + pad * 2;
+  const boxHeight = trees.length * lineHeight + pad * 2 - 4 * scale;
+
+  // Where the curves actually go, so the key can avoid them.
+  const points: [number, number][] = [];
+  const saved = env.variables.get("x");
+  for (const { tree } of trees) {
+    for (let i = 0; i <= 120; i++) {
+      const x = minX + ((maxX - minX) * i) / 120;
+      env.variables.set("x", x);
+      try {
+        const y = evaluate(tree, env);
+        if (Number.isFinite(y)) points.push([toX(x), toY(y)]);
+      } catch {
+        // no value here
+      }
+    }
+  }
+  if (saved === undefined) env.variables.delete("x");
+  else env.variables.set("x", saved);
+
+  const margin = 8 * scale;
+  const corners = [
+    { x: margin, y: margin },
+    { x: width - boxWidth - margin, y: margin },
+    { x: margin, y: height - boxHeight - margin },
+    { x: width - boxWidth - margin, y: height - boxHeight - margin },
+  ];
+  let best = corners[0];
+  let fewest = Infinity;
+  for (const corner of corners) {
+    const inside = points.filter(
+      ([px, py]) =>
+        px >= corner.x && px <= corner.x + boxWidth && py >= corner.y && py <= corner.y + boxHeight,
+    ).length;
+    if (inside < fewest) {
+      fewest = inside;
+      best = corner;
+    }
+  }
+
+  // A solid white box, not a see-through one: a key you read through a
+  // curve isn't a key.
+  context.fillStyle = "#FFFFFF";
+  context.strokeStyle = "#B8BFC9";
+  context.lineWidth = 1 * scale;
+  context.fillRect(best.x, best.y, boxWidth, boxHeight);
+  context.strokeRect(best.x, best.y, boxWidth, boxHeight);
+
+  context.textAlign = "left";
+  context.textBaseline = "middle";
+  trees.forEach((curve, at) => {
+    const y = best.y + pad + at * lineHeight + lineHeight / 2 - 4 * scale;
+    context.strokeStyle = curve.colour;
+    context.lineWidth = 2.5 * scale;
+    context.setLineDash(curve.dash.map((n) => n * scale));
+    context.beginPath();
+    context.moveTo(best.x + pad, y);
+    context.lineTo(best.x + pad + sample, y);
+    context.stroke();
+    context.setLineDash([]);
+
+    context.fillStyle = "#1F2530";
+    context.fillText(curve.label, best.x + pad + sample + 8 * scale, y);
+  });
 }
