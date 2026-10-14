@@ -88,7 +88,6 @@ export function molesFromGrams(grams: number, molarMass: number): CalcResult {
     unit: "mol",
     work: `${grams} ÷ ${molarMass} = ${formatSignificant(value, 4)}`,
   };
-  // throw new NotBuiltYet(`Moles from grams (grams=${grams}, molarMass=${molarMass})`);
 }
 
 /** molarity(0.5, 2) -> 0.25 M.  Guard litres — and guard BEFORE you divide. */

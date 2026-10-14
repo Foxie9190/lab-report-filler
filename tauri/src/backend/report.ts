@@ -27,16 +27,6 @@ export function bulletList(text: string): string {
     .join("\n");
 }
 
-/** Turn a multi-line string into a numbered list. */
-export function numberedList(text: string): string {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line, i) => `${i + 1}. ${line}`)
-    .join("\n");
-}
-
 /** One DataTable as a Markdown table. Returns "" if there's nothing in it. */
 export function markdownTable(table: DataTable): string {
   // Rows where every cell is blank are left out: the empty row you never

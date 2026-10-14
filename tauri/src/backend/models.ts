@@ -181,22 +181,6 @@ function trimZeros(text: string): string {
   return text.replace(/0+$/, "").replace(/\.$/, "") || "0";
 }
 
-// Matches e-notation inside a longer string, e.g. "6.022e+23".
-const E_NOTATION = /(-?\d+\.?\d*)[eE]([+-]?\d+)/g;
-
-/**
- * Rewrite every e-notation number inside a string, so a shown-work line
- * reads the same way as the answer above it.
- */
-export function sciText(text: string): string {
-  return text.replace(E_NOTATION, (_all, mantissa: string, exponent: string) => {
-    const power = Number(exponent);
-    const clean = trimZeros(mantissa);
-    if (power === 0) return clean;
-    return `${clean} × 10${superscript(String(power))}`;
-  });
-}
-
 /** How a finished calculation reads in the report: "2.25 %". */
 export function pretty(result: CalcResult): string {
   const number = result.sci
@@ -236,26 +220,6 @@ export function formatSignificant(value: number, digits = 4): string {
 function trimMantissa(text: string): string {
   const [mantissa, exponent] = text.split("e");
   return `${trimZeros(mantissa)}e${exponent}`;
-}
-
-/**
- * Thrown by the backend functions you have not written yet.
- *
- * The UI catches this by name and shows a friendly "this part is yours"
- * strip instead of crashing, so the app always runs.
- *
- * TYPESCRIPT NOTE: `extends Error` needs that `Object.setPrototypeOf` line.
- * Without it `instanceof NotBuiltYet` quietly returns false when compiled
- * for older JS targets — a genuinely nasty bug to chase. Leave it there.
- */
-export class NotBuiltYet extends Error {
-  readonly step: string;
-  constructor(step: string) {
-    super(`${step} isn't built yet.`);
-    this.name = "NotBuiltYet";
-    this.step = step;
-    Object.setPrototypeOf(this, NotBuiltYet.prototype);
-  }
 }
 
 // ---------------------------------------------------------------------------
