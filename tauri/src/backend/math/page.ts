@@ -44,13 +44,21 @@ export interface MathPageSummary {
   updatedAt: string;
 }
 
+/**
+ * A page with nothing on it.
+ *
+ * No starter curve: the Graph screen opens an empty row whose placeholder
+ * already shows what to type, and anything actually on the page ends up on
+ * the printable sheet — so a sheet can never come out with a line nobody
+ * asked for.
+ */
 export function makeMathPage(): MathPage {
   return {
     title: "",
     degrees: true,
     variables: [],
     lines: [],
-    curves: [{ text: "x^2 - 3" }],
+    curves: [],
   };
 }
 

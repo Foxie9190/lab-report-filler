@@ -40,7 +40,7 @@ export interface PreviewInputs {
 // A Letter page in CSS pixels, and the content height once 1in margins are
 // taken off the top and bottom. The page-break markers are drawn every
 // CONTENT_HEIGHT down the sheet.
-const PAGE_WIDTH = 8.5 * 96;
+export const PAGE_WIDTH = 8.5 * 96;
 const CONTENT_HEIGHT = 9 * 96;
 
 const ZOOM_KEY = "labfiller.previewZoom";
@@ -193,7 +193,7 @@ function base64(data: Uint8Array): string {
 }
 
 /** Every block, in order, with each one tagged with its form section. */
-function renderBlocks(blocks: Block[], striped: boolean): HTMLElement[] {
+export function renderBlocks(blocks: Block[], striped: boolean): HTMLElement[] {
   let section = "header";
   return blocks.map((block) => {
     if (block.kind === "heading") section = SECTION_OF[block.text] ?? section;
@@ -201,6 +201,53 @@ function renderBlocks(blocks: Block[], striped: boolean): HTMLElement[] {
     node.dataset.section = section;
     return node;
   });
+}
+
+// ---------------------------------------------------------------------------
+// The paper itself
+// ---------------------------------------------------------------------------
+
+/*
+ * These two are exported because the maths sheet draws on the same paper. One
+ * place decides what a page looks like on screen; a sheet gets it by asking.
+ */
+
+/** Put a document's own colours and font onto a `.paper` element. */
+export function dressPaper(paper: HTMLElement, theme: Theme, font: string): void {
+  paper.style.setProperty("--doc-accent", `#${theme.accent}`);
+  paper.style.setProperty("--doc-dark", `#${theme.dark}`);
+  paper.style.setProperty("--doc-light", `#${theme.light}`);
+  paper.style.setProperty("--doc-box", `#${theme.box}`);
+  paper.style.setProperty("--doc-ink", `#${theme.ink}`);
+  paper.style.setProperty("--doc-muted", `#${theme.muted}`);
+  // The paper uses the document's own font, so what you see on screen is what
+  // lands in the .docx.
+  paper.style.setProperty("--doc-font", fontCss(font));
+}
+
+/**
+ * Draw the page boundaries down a sheet, and say how many pages it came to.
+ *
+ * Word decides its own page breaks, and we are not Word — a line that sits
+ * right on the boundary may land on either side. These markers are an honest
+ * estimate: content is measured from the top of the text area and a line is
+ * drawn every 9 inches, which is how much of a Letter page is left after 1in
+ * margins. The sheet then ends on a page boundary rather than wherever the
+ * text ran out: that's 9in of text area per page, plus the 1in margin at the
+ * very top and the 1in at the very bottom.
+ */
+export function drawPageBreaks(body: HTMLElement, paper: HTMLElement): number {
+  for (const old of body.querySelectorAll(".page-break")) old.remove();
+  const pages = Math.max(Math.ceil(body.scrollHeight / CONTENT_HEIGHT), 1);
+  for (let i = 1; i < pages; i++) {
+    const mark = el("div", { class: "page-break" }, [
+      el("span", {}, [`Page ${i + 1}`]),
+    ]);
+    mark.style.top = `${i * CONTENT_HEIGHT}px`;
+    body.append(mark);
+  }
+  paper.style.minHeight = `${pages * 9 + 2}in`;
+  return pages;
 }
 
 // ---------------------------------------------------------------------------
@@ -327,28 +374,8 @@ export function setUpPreview(read: () => PreviewInputs): Preview {
   }
 
   // ---- page breaks --------------------------------------------------------
-  /*
-   * Word decides its own page breaks, and we are not Word — a line that sits
-   * right on the boundary may land on either side. These markers are an
-   * honest estimate: content is measured from the top of the text area and a
-   * line is drawn every 9 inches, which is how much of a Letter page is left
-   * after 1in margins.
-   */
   function drawBreaks(): void {
-    for (const old of body.querySelectorAll(".page-break")) old.remove();
-    const height = body.scrollHeight;
-    const pages = Math.max(Math.ceil(height / CONTENT_HEIGHT), 1);
-    for (let i = 1; i < pages; i++) {
-      const mark = el("div", { class: "page-break" }, [
-        el("span", {}, [`Page ${i + 1}`]),
-      ]);
-      mark.style.top = `${i * CONTENT_HEIGHT}px`;
-      body.append(mark);
-    }
-    // The sheet ends on a page boundary rather than wherever the text ran
-    // out: that's the 9in of text area per page, plus the 1in margin at the
-    // very top and the 1in at the very bottom.
-    paper.style.minHeight = `${pages * 9 + 2}in`;
+    const pages = drawPageBreaks(body, paper);
     pageCount.textContent = pages === 1 ? "1 page" : `${pages} pages`;
   }
 
@@ -361,16 +388,8 @@ export function setUpPreview(read: () => PreviewInputs): Preview {
       return;
     }
 
-    // The document's own colours, handed to the CSS as variables.
-    paper.style.setProperty("--doc-accent", `#${theme.accent}`);
-    paper.style.setProperty("--doc-dark", `#${theme.dark}`);
-    paper.style.setProperty("--doc-light", `#${theme.light}`);
-    paper.style.setProperty("--doc-box", `#${theme.box}`);
-    paper.style.setProperty("--doc-ink", `#${theme.ink}`);
-    paper.style.setProperty("--doc-muted", `#${theme.muted}`);
-    // The paper uses the document's own font, so what you see on screen is
-    // what lands in the .docx.
-    paper.style.setProperty("--doc-font", fontCss(font));
+    // The document's own colours and font, handed to the CSS as variables.
+    dressPaper(paper, theme, font);
     paper.title = `Letter page, ${themeName} theme`;
 
     const blocks = buildDocument(report, docOptions);

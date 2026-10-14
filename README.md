@@ -306,15 +306,15 @@ its own colour.
 
 ### Pages
 
-Whatever you do in the three screens above is a *page*, and pages save
-themselves. The title box at the top of the Math tab is the only thing you
+Whatever you do in the calculator, the solver and the graph is a *page*, and
+pages save themselves. The title box at the top of the Math tab is the only thing you
 fill in, and even that can stay empty — a page with no title is listed by
 its first line instead.
 
 **Pages** in the row of tabs lists everything you've worked on, newest
 first, the same way **My labs** lists labs. Open one to carry on, duplicate
 one to try the same question a different way, or delete one. A page keeps
-all three screens at once: the calculator's working, the variables you set,
+all three at once: the calculator's working, the variables you set,
 Degrees or Radians, the equations you solved, and the lines on the graph. So
 reopening last night's homework puts the graph back the way you left it.
 
@@ -324,8 +324,9 @@ every sheet you save.
 
 ### The printable sheet
 
-**Save as Word** in the Math tab turns the page into something you can hand
-in:
+**Sheet** in the row of tabs is the page as it will print — the real Letter
+page, scaled to fit, with the boundaries marked so you can see whether it runs
+onto a second one. **Save as Word** writes exactly that:
 
 - Your name, class and today's date under the title.
 - **Problems** — every equation you solved, numbered, with its steps
@@ -336,6 +337,10 @@ in:
 Two things are left off on purpose: scratch calculator lines, and equations
 the solver refused. A sheet is what you meant to show, not everything you
 typed.
+
+It redraws every time you open the area rather than as you type, which is
+enough to always be current: the screens inside the Math tab show one at a
+time, so nothing can change the page while you're looking at the sheet.
 
 The picture is not a screenshot of the graph screen. It's drawn again for
 paper — white background, double size so the text is still sharp when it's
@@ -351,8 +356,9 @@ each corner, so it doesn't end up sitting on the part you wanted to look at.
 
 A sheet is built out of the same blocks as a lab report —
 `src/backend/math/sheet.ts` returns a `Block[]` and touches neither Word nor
-HTML — so it goes through the same Word renderer, with the same theme, font
-and colour you picked for your reports.
+HTML — so the screen and the file are the same list of blocks handed to two
+renderers, in the same theme, font and colour you picked for your reports.
+Neither can show something the other doesn't.
 
 ### How it works, and why there's no `eval`
 
@@ -483,6 +489,8 @@ tauri/
       graph.ts          the graph screen: axes, curves, pan and zoom
       pages.ts          the saved pages, and who the sheets are for
       graphImage.ts     redraws the graph for paper, with the key
+      sheetView.ts      the sheet on screen, drawn from the same blocks
+      sheetLook.ts      the theme, font and name a sheet goes out with
     backend/
       models.ts         the shared data shapes, including Block
       chem.ts           the chemistry math

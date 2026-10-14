@@ -975,6 +975,18 @@ body.dragging { cursor: col-resize; user-select: none; }
 .paper-fit { margin: 0 auto; }
 .paper-fit[hidden] { display: none; }
 
+/*
+ * The Sheet area in the Math tab draws on the same .paper, but it sits in the
+ * page rather than in a scrolling column, so it gets this instead of
+ * .paper-scroll. The page is scaled to fit the width; overflow-x is only for
+ * a window too narrow for even the smallest scale.
+ */
+.sheet-view {
+  margin-top: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
 .paper {
   width: 8.5in;
   min-height: 11in;

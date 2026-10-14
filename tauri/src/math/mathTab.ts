@@ -2,7 +2,8 @@
  * The Math tab.
  *
  * A tab with its own tabs inside it, because "maths" isn't one screen: a
- * calculator, a solver and a graph want completely different layouts. Each
+ * calculator, a solver, a graph and the sheet they print onto want completely
+ * different layouts. Each
  * area is a module handed an empty element to fill; adding one is an import
  * and a line in AREAS, the same trick as CALCULATIONS and THEMES.
  *
@@ -16,7 +17,7 @@
  */
 
 import { el } from "../ui";
-import { blocksToDocx, defaultDocxOptions } from "../backend/exportDocx";
+import { blocksToDocx } from "../backend/exportDocx";
 import { buildMathSheet } from "../backend/math/sheet";
 import { graphPicture, SHEET_PICTURE } from "./graphImage";
 import { fileNameFor, saveDocx } from "../saveFile";
@@ -34,6 +35,8 @@ import { buildCalculator } from "./calculator";
 import { buildGraph } from "./graph";
 import { buildSolver } from "./solver";
 import { buildPages } from "./pages";
+import { buildSheetView } from "./sheetView";
+import { sheetOptions, sheetWho } from "./sheetLook";
 
 /**
  * What every area is handed.
@@ -65,6 +68,7 @@ const AREAS: MathArea[] = [
   { id: "calc", label: "Calculator", build: buildCalculator },
   { id: "solve", label: "Solve", build: buildSolver },
   { id: "graph", label: "Graph", build: buildGraph },
+  { id: "sheet", label: "Sheet", build: buildSheetView },
   { id: "pages", label: "Pages", build: buildPages },
 ];
 
@@ -217,26 +221,19 @@ function draw(): void {
       // Drawn fresh for paper rather than copied off the screen: white
       // background, dark ink, twice the size so it stays sharp.
       const drawn = await graphPicture(page);
+      const who = sheetWho();
       const blocks = buildMathSheet(
         page,
-        {
-          name: remembered("labfiller.studentName") ?? "",
-          course: remembered("labfiller.studentCourse") ?? "",
-        },
+        who,
         undefined,
         drawn === null ? null : { data: drawn, ...SHEET_PICTURE },
       );
-      const bytes = await blocksToDocx(
-        blocks,
-        {
-          ...defaultDocxOptions(),
-          // The same look as this person's lab reports, whatever they chose.
-          theme: remembered("labfiller.docTheme") ?? defaultDocxOptions().theme,
-          font: remembered("labfiller.docFont") ?? defaultDocxOptions().font,
-          customColor: remembered("labfiller.docColor") ?? undefined,
-        },
-        { title: page.title.trim() || "Maths", creator: remembered("labfiller.studentName") ?? "" },
-      );
+      // The theme and font this person picked for their lab reports, from the
+      // one place that answers that — so the file matches the Sheet area.
+      const bytes = await blocksToDocx(blocks, sheetOptions(), {
+        title: page.title.trim() || "Maths",
+        creator: who.name,
+      });
       const saved = await saveDocx(bytes, fileNameFor(page.title.trim() || "Maths"));
       sheet.textContent = saved === null ? was : "Saved";
     } catch (err) {
