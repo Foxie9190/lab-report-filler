@@ -10,6 +10,13 @@
 // and swappable behind the UI.
 package engine
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
+)
+
 // Kind says which of the three sorts of piece a Token is.
 //
 // Go has no union types, so where TypeScript wrote
@@ -40,50 +47,48 @@ type Token struct {
 // ops are the characters that count as operators.
 const ops = "+-*/^(),="
 
-// Tokenize turns a line of text into tokens.
-//
-// This function does NO maths. It doesn't know that * beats +, it doesn't
-// know what sin is, it doesn't care whether the brackets match. It turns a
-// line of text into a list of pieces the parser can reason about, and keeping
-// it this dumb is the point.
-//
-// Walk the input one character at a time. At each one, decide which of these
-// four it is:
-//
-//  1. a space        -> skip it
-//  2. a digit or '.' -> take every digit and dot that follows, and append
-//     Token{Kind: Number, Value: thatNumber}
-//  3. a letter       -> take every letter and digit that follows, and append
-//     Token{Kind: Name, Text: thatText}
-//  4. in ops         -> append Token{Kind: Op, Text: thatCharacter}
-//
-// Anything else is a typo, and a typo should say so out loud. Go has no
-// `throw`: a function that can fail returns an error as its last result, and
-// the caller checks it. So instead of throwing, return what you have so far
-// (or nil) and an error:
-//
-//	return nil, fmt.Errorf("I don't understand %q", string(ch))
-//
-// %q puts the quotes on for you, so a stray $ reads as: I don't understand "$".
-//
-// Five things you will need, none of which TypeScript made you think about:
-//
-//   - []rune(input) turns the string into a slice of characters. Indexing a Go
-//     string gives you BYTES, and a character like − is three bytes, so a
-//     plain input[i] would split it into nonsense in the error message.
-//   - len(runes) is the length. No .length.
-//   - append(tokens, Token{...}) grows a slice. It returns the new slice, so
-//     it is always tokens = append(tokens, ...).
-//   - strconv.ParseFloat(text, 64) is Number(text). It returns (float64, error).
-//   - strings.ContainsRune(ops, ch) is ops.includes(ch), and there is no regex
-//     needed for the rest: ch >= '0' && ch <= '9' is the digit test, and
-//     unicode.IsLetter(ch) the letter one.
-//
-// Start by making the empty input and "3" pass, then work down the test file.
 func Tokenize(input string) ([]Token, error) {
 	tokens := []Token{}
+	runes := []rune(input)
+	i := 0
 
-	// Your code goes here.
+	for i < len(runes) {
+		ch := runes[i]
+
+		if ch == ' ' {
+			i++
+			continue
+		}
+		if strings.ContainsRune(ops, ch) {
+			tokens = append(tokens, Token{Kind: Op, Text: string(ch)})
+			i++
+			continue
+		}
+		if (ch >= '0' && ch <= '9') || ch == '.' {
+			start := i
+			for i < len(runes) && ((runes[i] >= '0' && runes[i] <= '9') || runes[i] == '.') {
+				i++
+			}
+			text := string(runes[start:i])
+			value, err := strconv.ParseFloat(text, 64)
+
+			if err != nil {
+				return nil, fmt.Errorf("I dont understand %q", text)
+			}
+			tokens = append(tokens, Token{Kind: Number, Value: value})
+			continue
+		}
+
+		if unicode.IsLetter(ch) {
+			start := i
+			for i < len(runes) && (unicode.IsLetter(runes[i]) || (runes[i] >= '0' && runes[i] <= '9')) {
+				i++
+			}
+			tokens = append(tokens, Token{Kind: Name, Text: string(runes[start:i])})
+			continue
+		}
+		return nil, fmt.Errorf("I dont Understand %q", string(ch))
+	}
 
 	return tokens, nil
 }
