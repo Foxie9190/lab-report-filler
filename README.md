@@ -422,30 +422,9 @@ time it answers.
 that. The web version keeps labs in your browser; sync needs the installed
 app.
 
-## Version 1 (Python)
-
-The original app, written in Python with [Flet](https://flet.dev). It
-still works and is still here in the repo (`main.py`, `ui/`, `backend/`).
-Download it from the
-[v1.2.0 release](https://github.com/Foxie9190/lab-report-filler/releases/tag/v1.2.0),
-or run it from source:
-
-```bash
-pip install -r requirements.txt
-python3 main.py desktop
-```
-
-Its **Trigonometry** tab was the ancestor of the Math tab above — the same
-idea, one screen instead of several, and the expression engine rewritten
-from scratch in TypeScript.
-
-Version 2 is where new work happens.
-
----
-
 ## For developers
 
-### Version 2 — TypeScript + Tauri
+### The app — TypeScript + Tauri
 
 ```bash
 git clone https://github.com/Foxie9190/lab-report-filler.git
@@ -557,10 +536,7 @@ the shared `env`, so variables set in the calculator are available in it.
 
 ### Releasing a version
 
-Two apps, two workflows, two tag prefixes — so tagging one never
-rebuilds the other.
-
-**Version 2 (Tauri)** — bump the number in all four places
+**The app** — bump the number in all four places
 (`tauri/package.json`, `tauri/src-tauri/Cargo.toml`,
 `tauri/src-tauri/tauri.conf.json`, and `VERSION` in
 `tauri/src/backend/updates.ts`), commit, then:
@@ -574,18 +550,6 @@ git push origin v2.0.1
 installers on GitHub's machines and puts them in a **draft** Release.
 Check it, then publish.
 
-**Version 1 (Python)** — bump `VERSION` in `backend/updates.py` and the
-version in `pyproject.toml`, commit, then:
-
-```bash
-git tag py-v1.2.1
-git push origin py-v1.2.1
-```
-
-`.github/workflows/build.yml` builds the three Python bundles. Version 1
-apps compare their own `VERSION` with the newest release tag to decide
-whether to show their update strip, so those numbers have to match.
-
 **The website** needs no tag. `.github/workflows/pages.yml` rebuilds and
 republishes it on every push to `main`. It has to be switched on once, in
 **Settings → Pages → Source: GitHub Actions** — the workflow isn't allowed
@@ -595,3 +559,6 @@ to do that itself.
 the repo to a host. `server/DEPLOY.md` has the setup, and
 `tauri/.env.production` holds the address the built app talks to — change
 that line if the server moves.
+
+The original Python app that this one replaced isn't in `main` any more.
+`git checkout python-v1` brings it back if you ever want to look.

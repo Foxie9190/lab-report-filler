@@ -1,16 +1,14 @@
-name: Build app (version 2, Tauri)
+name: Build app
 
-# Runs whenever you push a tag that starts with "v", like v2.0.0.
+# Runs whenever you push a tag that starts with "v", like v3.2.0.
 # GitHub builds the app on their own Mac, Windows and Linux machines and
 # attaches every installer to a Release with that tag.
 #
-# The Python app (version 1) has its own workflow, build.yml, and its own
-# tag prefix: py-v1.2.1. That way tagging one never rebuilds the other.
-#
 # To ship a version:
 #   1. bump the version in tauri/package.json, tauri/src-tauri/Cargo.toml,
-#      tauri/src-tauri/tauri.conf.json and VERSION in tauri/src/main.ts
-#   2. git tag v2.0.0 && git push origin v2.0.0
+#      tauri/src-tauri/tauri.conf.json and VERSION in
+#      tauri/src/backend/updates.ts
+#   2. git tag v3.2.1 && git push origin v3.2.1
 
 on:
   push:
