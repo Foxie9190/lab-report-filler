@@ -35,6 +35,7 @@ import { buildCalculator } from "./calculator";
 import { buildGraph } from "./graph";
 import { buildSolver } from "./solver";
 import { buildPages } from "./pages";
+import * as goEngine from "./goEngine";
 import { buildSheetView } from "./sheetView";
 import { sheetOptions, sheetWho } from "./sheetLook";
 
@@ -146,6 +147,10 @@ async function saveNow(): Promise<void> {
 export function buildMathScreen(): void {
   if (started) return;
   started = true;
+  // 3.5MB, so it starts downloading the moment the Math tab is opened for the
+  // first time and never for anyone who doesn't use it. The screens work
+  // while it's in flight; they just use the TypeScript engine until it lands.
+  void goEngine.start();
   void openPage(lastMathPageId());
 }
 

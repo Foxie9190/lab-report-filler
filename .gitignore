@@ -16,3 +16,9 @@ Claude outputs/
 server/node_modules/
 server/.env
 server/dist/
+
+# The Go engine, compiled for the browser. 3.5MB and rebuilt by
+# `npm run wasm`, so it is built rather than committed — a new binary in
+# every commit would grow the repo's history forever.
+tauri/public/math.wasm
+tauri/public/wasm_exec.js

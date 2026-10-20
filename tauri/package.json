@@ -13,7 +13,9 @@
     "test:math": "tsx test-math.ts",
     "test:parse": "tsx test-parse.ts",
     "test:eval": "tsx test-eval.ts",
-    "test:solve": "tsx test-solve.ts"
+    "test:solve": "tsx test-solve.ts",
+    "wasm": "cd ../engine && GOOS=js GOARCH=wasm go build -o ../tauri/public/math.wasm ./cmd/wasm && cp \"$(go env GOROOT)/lib/wasm/wasm_exec.js\" ../tauri/public/",
+    "test:go": "cd ../engine && go test ./..."
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

@@ -9,6 +9,7 @@
 
 import { el } from "../ui";
 import { calculate, FUNCTIONS } from "../backend/math/evaluate";
+import * as goEngine from "./goEngine";
 import type { Shared } from "./mathTab";
 
 /** The buttons under the box. Text that gets typed for you, nothing more. */
@@ -130,11 +131,34 @@ export function buildCalculator(host: HTMLElement, shared: Shared): void {
 
     let answer: string;
     let worked = true;
-    try {
-      answer = `= ${tidy(calculate(text, shared.env))}`;
-    } catch (err) {
-      answer = (err as Error).message;
-      worked = false;
+    /*
+     * The Go engine when it's loaded, the TypeScript one when it isn't.
+     *
+     * Both answer the same question and both keep the variables; the only
+     * difference is which language worked it out. goEngine.ready() is null
+     * until math.wasm has loaded, and stays null if it never does.
+     */
+    const go = goEngine.ready();
+    if (go !== null) {
+      const result = go.calculate(text, shared.env.degrees, shared.env.variables);
+      if (result.ok && result.value !== undefined) {
+        answer = `= ${tidy(result.value)}`;
+        // Go hands the variables back rather than holding them, so `x = 5`
+        // and `ans` land in the one copy that lives here.
+        for (const [name, value] of Object.entries(result.variables ?? {})) {
+          shared.env.variables.set(name, value);
+        }
+      } else {
+        answer = result.error ?? "that didn't work out";
+        worked = false;
+      }
+    } else {
+      try {
+        answer = `= ${tidy(calculate(text, shared.env))}`;
+      } catch (err) {
+        answer = (err as Error).message;
+        worked = false;
+      }
     }
 
     addLine(text, answer, worked);
